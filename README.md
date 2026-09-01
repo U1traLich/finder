@@ -2,9 +2,9 @@
 
 Скрипт для поиска стендов (`config.yaml`) в Git-репозитории `argocd` по `cowork_subdomain`, `admin_email`, `ИНН` или `stand_name`. Скрипт автоматически обновляет репозиторий, рекурсивно ищет конфиги в заданных зонах и выводит информацию о найденных стендах, а также предоставляет быстрый доступ к связанным инструментам.
 
-**Репозиторий на GitHub:**  
-[https://github.com/U1traLich/finder](https://github.com/U1traLich/finder)  
-Клонирование: `git clone git@github.com:U1traLich/finder.git` или `https://github.com/U1traLich/finder.git`
+**Репозиторий:**  
+[https://git.sberdevices.ru/gigabb/sdb_support/finder](https://git.sberdevices.ru/gigabb/sdb_support/finder)  
+Клонирование: `git clone git@git.sberdevices.ru:gigabb/sdb_support/finder.git` или `https://git.sberdevices.ru/gigabb/sdb_support/finder.git`
 
 ---
 
