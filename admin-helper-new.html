@@ -1,0 +1,3035 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Helper</title>
+<style>
+  :root {
+    color-scheme: light;
+    --font-sans: "SB Sans Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "SB Sans Text Mono", "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
+    --page-bg: #fafafa;
+    --panel: #ffffff;
+    --text: rgba(0, 0, 0, 0.9);
+    --muted: rgba(0, 0, 0, 0.55);
+    --border: #e6e6e6;
+    --border-strong: #cccccc;
+    --blue: #385ee0;
+    --blue-tint: #ebf1ff;
+    --purple: #6e3fb2;
+    --purple-tint: #eee8fb;
+    --red: #dc2626;
+    --red-tint: #fceae7;
+    --hover: #f0f0f0;
+    --code-bg: #1f2020;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    letter-spacing: -0.3px;
+    line-height: 1.45;
+  }
+  main {
+    width: min(760px, calc(100vw - 32px));
+    margin: 32px auto 60px;
+  }
+  header {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  h1 .version {
+    margin-left: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+  code {
+    font-family: var(--font-mono);
+  }
+  #search {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    background: #fafafa;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  #search:focus { border-color: rgba(0, 0, 0, 0.35); }
+  #empty-state {
+    display: none;
+    padding: 24px 0;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  details.item {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+  }
+  summary.item-head {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    user-select: none;
+    border-radius: 12px;
+  }
+  summary.item-head:hover { background: var(--hover); }
+  summary.item-head::-webkit-details-marker { display: none; }
+  .item-title {
+    font-size: 14px;
+    font-weight: 600;
+    flex: 1;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    border-radius: 999px;
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    background: var(--hover);
+    white-space: nowrap;
+  }
+  .tag.pod-heimdall-auth { color: var(--blue); background: var(--blue-tint); }
+  .tag.pod-yggdrasil { color: var(--purple); background: var(--purple-tint); }
+  .tag.danger { color: var(--red); background: var(--red-tint); }
+  .chevron {
+    color: var(--muted);
+    font-size: 11px;
+    transition: transform 0.15s ease;
+  }
+  details.item[open] .chevron { transform: rotate(180deg); }
+  .item-body {
+    padding: 2px 14px 14px;
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+  .hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .fields {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+  .field label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .field textarea,
+  .field input[type="text"],
+  .field input[type="email"],
+  .field select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: #fafafa;
+    color: var(--text);
+    font: 13px/1.5 var(--font-mono);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .field select { font-family: var(--font-sans); cursor: pointer; }
+  .field textarea {
+    min-height: 68px;
+    resize: vertical;
+  }
+  .field textarea:focus,
+  .field input:focus,
+  .field select:focus { border-color: rgba(0, 0, 0, 0.35); }
+  .output-wrap {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+  button.copy-btn {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.65);
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    backdrop-filter: blur(2px);
+  }
+  button.copy-btn:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+  button.copy-btn.copied { color: #6fe3a0; border-color: rgba(111, 227, 160, 0.4); background: rgba(63, 208, 112, 0.18); }
+  button.copy-btn svg { width: 14px; height: 14px; }
+  button.copy-btn .icon-check { display: none; }
+  button.copy-btn.copied .icon-copy { display: none; }
+  button.copy-btn.copied .icon-check { display: block; }
+  pre.output {
+    max-height: 320px;
+    margin: 0;
+    padding: 12px 44px 12px 12px;
+    overflow: auto;
+    border-radius: 8px;
+    background: var(--code-bg);
+    color: #eef4ff;
+    font: 12px/1.45 var(--font-mono);
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Helper <span class="version" id="version"></span></h1>
+    <input id="search" type="text" placeholder="Поиск команд…" autocomplete="off" autofocus />
+  </header>
+
+  <div class="list" id="list"></div>
+  <div id="empty-state">Ничего не найдено</div>
+</main>
+
+<script>
+const HELPER_VERSION = "01.09.2026";
+
+function parseEmailList(raw) {
+  const seen = new Set();
+  const result = [];
+  for (const part of (raw || "").split(/[\s,;]+/)) {
+    const email = part.trim().toLowerCase();
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+    result.push(email);
+  }
+  return result;
+}
+
+function emailsPy(list) {
+  return JSON.stringify(list);
+}
+
+function emailPy(value) {
+  return JSON.stringify((value || "").trim().toLowerCase());
+}
+
+function passwordPy(value) {
+  const trimmed = (value || "").trim();
+  return trimmed ? JSON.stringify(trimmed) : "None";
+}
+
+function fioPy(value) {
+  const trimmed = (value || "").trim();
+  return trimmed ? JSON.stringify(trimmed) : "None";
+}
+
+function roleNamePy(value) {
+  return JSON.stringify((value || "").trim() || "Администратор");
+}
+
+function secretPy(value) {
+  return JSON.stringify((value || "").trim());
+}
+
+const POD_HEIMDALL = "heimdall-auth";
+const POD_YGGDRASIL = "yggdrasil";
+
+const COMMANDS = [
+  {
+    id: "invite-users",
+    title: "1. Пригласить пользователей",
+    pods: [POD_HEIMDALL],
+    hint: "Один batch-запрос на весь список.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import json, os, sys, urllib.error, urllib.request
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+TOKEN_ENV_NAMES = (
+    "AUTH_INTERNAL_BFF_ACCESS_TOKEN_SECRET",
+    "SLEIPNIR_LOCAL_INTERNAL_PLATFORM_API_KEY",
+    "SLEIPNIR_GLOBAL_INTERNAL_PLATFORM_API_KEY",
+    "SLEIPNIR_INTERNAL_PLATFORM_API_KEY",
+)
+TOKEN = next((value for value in (os.environ.get(name, "").strip() for name in TOKEN_ENV_NAMES) if value), "")
+
+if not EMAILS:
+    print(f"{RED}ERROR:{RESET} заполните поле email")
+    sys.exit(2)
+if any("@" not in email for email in EMAILS):
+    print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+    sys.exit(2)
+if not TOKEN:
+    print(f"{RED}ERROR:{RESET} не задана ни одна из переменных: " + ", ".join(TOKEN_ENV_NAMES))
+    sys.exit(2)
+
+req = urllib.request.Request(
+    "http://localhost:8010/api/v1/invitations",
+    data=json.dumps({"emails": EMAILS}).encode(),
+    headers={"content-type": "application/json", "authorization": f"Bearer {TOKEN}"},
+    method="POST",
+)
+
+print(f"приглашаю {len(EMAILS)} email:")
+for email in EMAILS:
+    print(" -", email)
+print("")
+
+try:
+    with urllib.request.urlopen(req, timeout=60) as response:
+        print(f"{GREEN}[OK]{RESET} status={response.status}")
+        print(response.read().decode("utf-8"))
+except urllib.error.HTTPError as error:
+    print(f"{RED}[FAIL]{RESET} status={error.code}")
+    print(error.read().decode("utf-8"))
+    sys.exit(1)
+except urllib.error.URLError as error:
+    print(f"{RED}[FAIL]{RESET} cannot reach heimdall-auth on localhost:8010: {error}")
+    sys.exit(1)
+PY`,
+  },
+  {
+    id: "invite-admins",
+    title: "2. Пригласить админов",
+    pods: [POD_HEIMDALL],
+    hint: "Приглашение с зарезервированной ролью: на accept пользователь получает её вместо дефолтного «Участника». Уже зарегистрированному роль так не выдать — для него карточка 3.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+      { id: "role", type: "text", label: "Роль", placeholder: "пусто — Администратор" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, os, sys, httpx
+from sqlalchemy import select
+try:
+    from auth_service.bootstrap.config import UserManagementMode, get_settings
+except ModuleNotFoundError:
+    from auth_service.config import UserManagementMode, get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import GlobalRoleModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import GlobalRoleModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import GlobalRoleModel
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+ROLE_NAME = ${roleNamePy(v.role)}
+TOKEN_ENV_NAMES = (
+    "AUTH_INTERNAL_BFF_ACCESS_TOKEN_SECRET",
+    "SLEIPNIR_LOCAL_INTERNAL_PLATFORM_API_KEY",
+    "SLEIPNIR_GLOBAL_INTERNAL_PLATFORM_API_KEY",
+    "SLEIPNIR_INTERNAL_PLATFORM_API_KEY",
+)
+TOKEN = next((value for value in (os.environ.get(name, "").strip() for name in TOKEN_ENV_NAMES) if value), "")
+
+async def resolve_role_id(settings):
+    db = Database(settings)
+    try:
+        async with db.session() as session:
+            result = await session.execute(
+                select(GlobalRoleModel).where(GlobalRoleModel.name == ROLE_NAME)
+            )
+            role = result.scalar_one_or_none()
+            if role is not None:
+                return role.role_id
+            names = (await session.execute(select(GlobalRoleModel.name).order_by(GlobalRoleModel.name))).scalars()
+            print(f"{RED}ERROR:{RESET} роль {ROLE_NAME!r} не найдена в global_roles")
+            print("доступные роли:", ", ".join(names) or "<пусто>")
+            sys.exit(2)
+    finally:
+        await db.close()
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+    if any("@" not in email for email in EMAILS):
+        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+        sys.exit(2)
+    if not TOKEN:
+        print(f"{RED}ERROR:{RESET} не задана ни одна из переменных: " + ", ".join(TOKEN_ENV_NAMES))
+        sys.exit(2)
+
+    settings = get_settings()
+    if settings.user_management_mode is not UserManagementMode.LOCAL:
+        print(f"{RED}ERROR:{RESET} стенд в режиме {settings.user_management_mode.value} — роли приходят из IdM, выбрать роль при инвайте нельзя")
+        print("пригласите карточкой 1, после первого входа выдайте доступ карточкой 3")
+        sys.exit(2)
+
+    role_id = await resolve_role_id(settings)
+
+    print(f"приглашаю {len(EMAILS)} email с ролью {ROLE_NAME!r} (role_id={role_id}):")
+    for email in EMAILS:
+        print(" -", email)
+    print("")
+
+    try:
+        async with httpx.AsyncClient(timeout=60, trust_env=False) as http:
+            response = await http.post(
+                "http://localhost:8010/api/v1/invitations",
+                json={"emails": EMAILS, "role_ids": [str(role_id)]},
+                headers={"authorization": f"Bearer {TOKEN}"},
+            )
+    except httpx.HTTPError as error:
+        print(f"{RED}[FAIL]{RESET} heimdall-auth недоступен на localhost:8010: {error!r}")
+        sys.exit(1)
+
+    if response.status_code >= 400:
+        print(f"{RED}[FAIL]{RESET} status={response.status_code}")
+        print(response.text)
+        sys.exit(1)
+
+    payload = response.json()
+    stale = 0
+    for item in payload.get("items", []):
+        status = str(item.get("status"))
+        if status == "sent":
+            print(f"{GREEN}[SENT]{RESET} {item.get('email')}")
+        else:
+            print(f"{YELLOW}[{status.upper()}]{RESET} {item.get('email')}")
+            if status == "already_registered":
+                stale += 1
+
+    print("")
+    print(f"итого: запрошено={payload.get('requested')} отправлено={payload.get('sent')}")
+    if stale:
+        print(f"{YELLOW}примечание:{RESET} {stale} уже зарегистрированы — роль им выдаст карточка 3")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "grant-admin",
+    title: "3. Выдать админский доступ",
+    pods: [POD_HEIMDALL],
+    hint: "RBAC-роль «Администратор» (её читает админка) плюс три legacy access_grants. Пользователь уже должен существовать в Auth provider.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from contextlib import AsyncExitStack
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+from auth_service.cli.rbac.errors import RoleNotFoundError
+from auth_service.cli.rbac.service import RbacCliService
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.transactions import DatabaseTransactionManager
+except ModuleNotFoundError:
+    from auth_service.db.transactions import DatabaseTransactionManager
+from auth_service.features.permissions.manifest_loader import load_permission_manifests
+from auth_service.features.permissions.repository import PermissionRepository
+from auth_service.features.permissions.service import PermissionService
+from auth_service.features.rbac.read_repository import RbacReadRepository
+from auth_service.features.rbac.write_repository import RbacWriteRepository
+from auth_service.main import PERMISSIONS_DIR
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+ROLE_NAME = "Администратор"
+ADMIN_GRANTS = (
+    ("admin", "global", "admin.admin"),
+    ("admin.users", "global", "admin.users.admin"),
+    ("admin.connectors", "global", "admin.connectors.admin"),
+)
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+    if any("@" not in email for email in EMAILS):
+        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+        sys.exit(2)
+
+    settings = get_settings()
+    db = Database(settings)
+    ok = 0
+    failed = 0
+    async with AsyncExitStack() as stack:
+        stack.push_async_callback(db.close)
+        session = await stack.enter_async_context(db.session())
+        permission_service = PermissionService(
+            repository=PermissionRepository(session),
+            registry=load_permission_manifests(PERMISSIONS_DIR),
+            transaction_manager=DatabaseTransactionManager(session),
+        )
+        rbac_service = RbacCliService(
+            read_repository=RbacReadRepository(session),
+            write_repository=RbacWriteRepository(session),
+        )
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            for email in EMAILS:
+                user = await auth_client.find_user_by_email(email=email)
+                if user is None:
+                    print(f"{RED}[FAIL]{RESET} {email}: user not found in provider")
+                    failed += 1
+                    continue
+                granted_roles = []
+                for namespace, resource_id, role_id in ADMIN_GRANTS:
+                    grant = await permission_service.grant_access(
+                        user_id=user.id,
+                        namespace=namespace,
+                        resource_id=resource_id,
+                        role_id=role_id,
+                    )
+                    granted_roles.append(f"{grant.namespace}/{grant.resource_id}/{grant.role_id}")
+                try:
+                    is_new = await rbac_service.grant_role(
+                        user_id=user.id, role_name=ROLE_NAME, operator="admin-helper"
+                    )
+                    await session.commit()
+                    rbac_status = "назначена" if is_new else "уже была"
+                    marker = f"{GREEN}[OK]{RESET}"
+                    ok += 1
+                except RoleNotFoundError:
+                    await session.rollback()
+                    rbac_status = f"{RED}роль не найдена — прогоните карточку 18{RESET}"
+                    marker = f"{YELLOW}[PARTIAL]{RESET}"
+                    failed += 1
+                print(f"{marker} {email}: user_id={user.id}")
+                print(f"  RBAC-роль {ROLE_NAME!r}: {rbac_status}")
+                print(f"  legacy grants: {', '.join(granted_roles)}")
+
+    print("")
+    print(f"итого: ok={ok} failed={failed}")
+    if failed:
+        sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "grant-connectors-admin",
+    title: "4. Выдать admin.connectors.admin (legacy)",
+    pods: [POD_HEIMDALL],
+    hint: "Только legacy access_grants. Раздел коннекторов в админке смотрит на RBAC-право connectors.manage — открыть его можно карточкой 3 или 17.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from sqlalchemy.dialects.postgresql import insert
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import AccessGrantModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import AccessGrantModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import AccessGrantModel
+from auth_service.features.permissions.manifest_loader import load_permission_manifests
+from auth_service.main import PERMISSIONS_DIR
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+NAMESPACE = "admin.connectors"
+RESOURCE_ID = "global"
+ROLE_ID = "admin.connectors.admin"
+REQUIRED_PERMISSION = "manage"
+
+def resolve_role_id(registry):
+    namespace = registry.find_namespace(NAMESPACE)
+    if namespace is None:
+        available = ", ".join(sorted(registry.namespaces)) or "<empty>"
+        print(f"{RED}ERROR:{RESET} namespace {NAMESPACE!r} is not registered in this pod image")
+        print(f"available namespaces: {available}")
+        sys.exit(2)
+    if namespace.has_role(ROLE_ID):
+        if REQUIRED_PERMISSION not in namespace.permissions_by_role(ROLE_ID):
+            print(f"{RED}ERROR:{RESET} role {ROLE_ID!r} exists, but does not grant {REQUIRED_PERMISSION!r}")
+            sys.exit(2)
+        return ROLE_ID
+    fallback_roles = [
+        role.id
+        for role in namespace.roles
+        if REQUIRED_PERMISSION in namespace.permissions_by_role(role.id)
+    ]
+    if len(fallback_roles) == 1:
+        fallback_role_id = fallback_roles[0]
+        print(f"{YELLOW}[WARN]{RESET} role {ROLE_ID!r} is absent in this pod image; using {fallback_role_id!r}, the only role that grants {REQUIRED_PERMISSION!r}")
+        return fallback_role_id
+    print(f"{RED}ERROR:{RESET} role {ROLE_ID!r} is not registered in namespace {NAMESPACE!r}")
+    print("roles granting manage:", fallback_roles or "<none>")
+    print("Fix the pod image manifest or choose the correct role explicitly.")
+    sys.exit(2)
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+    if any("@" not in email for email in EMAILS):
+        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+        sys.exit(2)
+
+    settings = get_settings()
+    db = Database(settings)
+    role_id = resolve_role_id(load_permission_manifests(PERMISSIONS_DIR))
+    failed = 0
+    try:
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            for email in EMAILS:
+                user = await auth_client.find_user_by_email(email=email)
+                if user is None:
+                    print(f"{RED}[FAIL]{RESET} {email}: user not found in provider")
+                    failed += 1
+                    continue
+                async with db.session() as session:
+                    async with session.begin():
+                        statement = (
+                            insert(AccessGrantModel)
+                            .values(
+                                user_id=user.id,
+                                namespace=NAMESPACE,
+                                resource_id=RESOURCE_ID,
+                                role_id=role_id,
+                            )
+                            .on_conflict_do_update(
+                                constraint="uq_access_grants_user_namespace_resource",
+                                set_={"role_id": role_id},
+                            )
+                            .returning(AccessGrantModel)
+                        )
+                        result = await session.execute(statement)
+                        grant = result.scalar_one()
+                print(f"{GREEN}[OK]{RESET} {email}: user_id={user.id} granted {grant.namespace}/{grant.resource_id}/{grant.role_id}")
+    finally:
+        await db.close()
+
+    print("")
+    print(f"итого: ok={len(EMAILS) - failed} failed={failed}")
+    if failed:
+        sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "list-connectors-admins",
+    title: "5. Кто имеет admin.connectors.admin",
+    pods: [POD_HEIMDALL],
+    hint: "Без входных данных — сканирует все access_grants с этой ролью.",
+    fields: [],
+    render: () => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, httpx
+from sqlalchemy import select
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import AccessGrantModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import AccessGrantModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import AccessGrantModel
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+NAMESPACE = "admin.connectors"
+RESOURCE_ID = "global"
+ROLE_ID = "admin.connectors.admin"
+
+async def main():
+    settings = get_settings()
+    db = Database(settings)
+    try:
+        async with db.session() as session:
+            result = await session.execute(
+                select(AccessGrantModel)
+                .where(
+                    AccessGrantModel.namespace == NAMESPACE,
+                    AccessGrantModel.resource_id == RESOURCE_ID,
+                    AccessGrantModel.role_id == ROLE_ID,
+                )
+                .order_by(AccessGrantModel.user_id)
+            )
+            grants = list(result.scalars())
+
+        if not grants:
+            print(f"{YELLOW}[INFO]{RESET} нет ни одного access_grant для {NAMESPACE}/{RESOURCE_ID}/{ROLE_ID}")
+            return
+
+        print(f"найдено грантов: {len(grants)} ({NAMESPACE}/{RESOURCE_ID}/{ROLE_ID})")
+        print("")
+        found = 0
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            for grant in grants:
+                user = await auth_client.get_provider_user_by_id(user_id=grant.user_id)
+                if user is None:
+                    print(f"{YELLOW}[WARN]{RESET} user_id={grant.user_id}: не найден в provider (стал zombie-грантом)")
+                else:
+                    print(f"{GREEN}[OK]{RESET} email={user.email} user_id={grant.user_id} enabled={user.enabled}")
+                    found += 1
+
+        print("")
+        print(f"итого: {found} активных из {len(grants)} грантов")
+    finally:
+        await db.close()
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "revoke-connectors-admin",
+    title: "6. Отозвать admin.connectors.admin (legacy)",
+    pods: [POD_HEIMDALL],
+    danger: true,
+    hint: "Снимает только legacy-грант. RBAC-роль «Администратор» тоже даёт connectors.manage — полный отзыв делает карточка 21.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from sqlalchemy import delete
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import AccessGrantModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import AccessGrantModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import AccessGrantModel
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+NAMESPACE = "admin.connectors"
+RESOURCE_ID = "global"
+ROLE_ID = "admin.connectors.admin"
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+    if any("@" not in email for email in EMAILS):
+        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+        sys.exit(2)
+
+    settings = get_settings()
+    db = Database(settings)
+    revoked = 0
+    already_absent = 0
+    failed = 0
+    try:
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            for email in EMAILS:
+                user = await auth_client.find_user_by_email(email=email)
+                if user is None:
+                    print(f"{RED}[FAIL]{RESET} {email}: user not found in provider")
+                    failed += 1
+                    continue
+                async with db.session() as session:
+                    async with session.begin():
+                        statement = delete(AccessGrantModel).where(
+                            AccessGrantModel.user_id == user.id,
+                            AccessGrantModel.namespace == NAMESPACE,
+                            AccessGrantModel.resource_id == RESOURCE_ID,
+                            AccessGrantModel.role_id == ROLE_ID,
+                        )
+                        result = await session.execute(statement)
+                if result.rowcount:
+                    print(f"{GREEN}[OK]{RESET} {email}: user_id={user.id} доступ отозван")
+                    revoked += 1
+                else:
+                    print(f"{YELLOW}[SKIP]{RESET} {email}: user_id={user.id} гранта и так не было")
+                    already_absent += 1
+    finally:
+        await db.close()
+
+    print("")
+    print(f"итого: отозвано={revoked} уже_не_было={already_absent} failed={failed}")
+    if failed:
+        sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "check-invites",
+    title: "7. Проверить принятие приглашений",
+    pods: [POD_HEIMDALL],
+    hint: "Статус по каждому email: принял, ждёт, истекло или не приглашали.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from datetime import UTC, datetime
+from sqlalchemy import select
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import InviteTokenModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import InviteTokenModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import InviteTokenModel
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+
+    settings = get_settings()
+    db = Database(settings)
+    accepted = waiting = expired = uninvited = other = 0
+    try:
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            for email in EMAILS:
+                user = await auth_client.find_user_by_email(email=email)
+                async with db.session() as session:
+                    result = await session.execute(
+                        select(InviteTokenModel)
+                        .where(InviteTokenModel.email_normalized == email)
+                        .order_by(InviteTokenModel.updated_at.desc())
+                    )
+                    token = result.scalars().first()
+                if user is not None:
+                    print(f"{GREEN}[ACCEPTED]{RESET} {email}: пользователь зарегистрирован, user_id={user.id}")
+                    accepted += 1
+                    continue
+                if token is None:
+                    print(f"{RED}[UNINVITED]{RESET} {email}: пользователя нет, приглашение не отправлялось — карточка 1")
+                    uninvited += 1
+                    continue
+                exp = token.expires_at
+                if exp.tzinfo is None:
+                    exp = exp.replace(tzinfo=UTC)
+                if token.status == "pending" and exp > datetime.now(UTC):
+                    print(f"{YELLOW}[WAITING]{RESET} {email}: приглашение отправлено, не принято, ссылка живёт до {exp:%Y-%m-%d %H:%M} UTC")
+                    waiting += 1
+                elif exp <= datetime.now(UTC):
+                    print(f"{RED}[EXPIRED]{RESET} {email}: ссылка истекла {exp:%Y-%m-%d %H:%M} UTC, нужно перевыслать приглашение — карточка 1")
+                    expired += 1
+                else:
+                    print(f"{YELLOW}[{token.status.upper()}]{RESET} {email}: токен в статусе {token.status}, пользователя в провайдере нет")
+                    other += 1
+    finally:
+        await db.close()
+
+    print("")
+    print(f"итого: приняли={accepted} ждут={waiting} истекло={expired} не приглашали={uninvited} прочее={other}")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "check-grants",
+    title: "8. Проверить доступы",
+    pods: [POD_HEIMDALL],
+    hint: "RBAC-роли и права (их читает админка) плюс legacy access_grants.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from sqlalchemy import select, text
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import AccessGrantModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import AccessGrantModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import AccessGrantModel
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+
+    settings = get_settings()
+    db = Database(settings)
+    not_found = 0
+    checked = 0
+    try:
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            for email in EMAILS:
+                print(f"== {email} ==")
+                user = await auth_client.find_user_by_email(email=email)
+                if user is None:
+                    print(f"{YELLOW}[SKIP]{RESET} не найден в provider — карточка 1")
+                    not_found += 1
+                    print("")
+                    continue
+                checked += 1
+                print(f"user_id: {user.id}")
+                async with db.session() as session:
+                    roles_result = await session.execute(
+                        text(
+                            "SELECT gr.name FROM user_global_roles ugr "
+                            "JOIN global_roles gr ON gr.role_id = ugr.role_id "
+                            "WHERE ugr.user_id = :uid ORDER BY gr.name"
+                        ),
+                        {"uid": user.id},
+                    )
+                    role_names = [row[0] for row in roles_result.all()]
+                    permissions_result = await session.execute(
+                        text(
+                            "SELECT DISTINCT grp.permission_id FROM user_global_roles ugr "
+                            "JOIN global_role_permissions grp ON grp.role_id = ugr.role_id "
+                            "WHERE ugr.user_id = :uid ORDER BY grp.permission_id"
+                        ),
+                        {"uid": user.id},
+                    )
+                    permissions = {row[0] for row in permissions_result.all()}
+                    grants_result = await session.execute(
+                        select(AccessGrantModel)
+                        .where(AccessGrantModel.user_id == user.id)
+                        .order_by(AccessGrantModel.namespace, AccessGrantModel.resource_id, AccessGrantModel.role_id)
+                    )
+                    grants = list(grants_result.scalars())
+
+                print("RBAC-роли: " + (", ".join(role_names) if role_names else "нет"))
+                def flag(label, permission_id):
+                    mark = f"{GREEN}да{RESET}" if permission_id in permissions else f"{RED}нет{RESET}"
+                    print(f"  {label} ({permission_id}): {mark}")
+                flag("управление ролями", "roles.manage")
+                flag("управление пользователями", "users.manage")
+                flag("управление коннекторами", "connectors.manage")
+                flag("управление пространствами", "workspace.manage")
+
+                print("legacy access_grants: " + (str(len(grants)) if grants else "нет"))
+                for grant in grants:
+                    print(f"  - {grant.namespace}/{grant.resource_id}/{grant.role_id}")
+                print("")
+    finally:
+        await db.close()
+
+    print(f"итого: проверено={checked} не_найдено={not_found}")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "create-tech-admin",
+    title: "9. Создать tech admin",
+    pods: [POD_HEIMDALL],
+    hint: "Создаёт или находит пользователя, ставит пароль, выдаёт RBAC-роль «Администратор» и legacy access_grants.",
+    fields: [
+      { id: "email", type: "email", label: "Email", placeholder: "tech-admin@example.com" },
+      { id: "password", type: "password", label: "Пароль", placeholder: "оставьте пустым — сгенерируется случайный" },
+      { id: "fio", type: "text", label: "ФИО (необязательно)", placeholder: "Иванов Иван Иванович" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, secrets, string, sys, httpx
+from contextlib import AsyncExitStack
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+from auth_service.cli.rbac.errors import RoleNotFoundError
+from auth_service.cli.rbac.service import RbacCliService
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.transactions import DatabaseTransactionManager
+except ModuleNotFoundError:
+    from auth_service.db.transactions import DatabaseTransactionManager
+from auth_service.features.permissions.manifest_loader import load_permission_manifests
+from auth_service.features.permissions.repository import PermissionRepository
+from auth_service.features.permissions.service import PermissionService
+from auth_service.features.rbac.read_repository import RbacReadRepository
+from auth_service.features.rbac.write_repository import RbacWriteRepository
+from auth_service.main import PERMISSIONS_DIR
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAIL = ${emailPy(v.email)}
+PASSWORD = ${passwordPy(v.password)}
+FIO = ${fioPy(v.fio)}
+ROLE_NAME = "Администратор"
+ADMIN_GRANTS = (
+    ("admin", "global", "admin.admin"),
+    ("admin.users", "global", "admin.users.admin"),
+    ("admin.connectors", "global", "admin.connectors.admin"),
+)
+
+def make_password(length=24):
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
+    while True:
+        password = "".join(secrets.choice(alphabet) for _ in range(length))
+        if any(c.islower() for c in password) and any(c.isupper() for c in password) and any(c.isdigit() for c in password) and any(c in "!@#$%^&*()-_=+" for c in password):
+            return password
+
+async def main():
+    if not EMAIL or "@" not in EMAIL:
+        print(f"{RED}ERROR:{RESET} заполните корректный email")
+        sys.exit(2)
+
+    password = PASSWORD or make_password()
+    settings = get_settings()
+    db = Database(settings)
+    async with AsyncExitStack() as stack:
+        stack.push_async_callback(db.close)
+        session = await stack.enter_async_context(db.session())
+        permission_service = PermissionService(
+            repository=PermissionRepository(session),
+            registry=load_permission_manifests(PERMISSIONS_DIR),
+            transaction_manager=DatabaseTransactionManager(session),
+        )
+        rbac_service = RbacCliService(
+            read_repository=RbacReadRepository(session),
+            write_repository=RbacWriteRepository(session),
+        )
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            if FIO:
+                parts = FIO.split()
+                last_name = parts[0]
+                first_name = " ".join(parts[1:]) if len(parts) > 1 else "Technical"
+            else:
+                last_name = "Admin"
+                first_name = "Technical"
+            user = await auth_client.find_user_by_email(email=EMAIL)
+            if user is None:
+                user = await auth_client.create_provider_user(email=EMAIL, first_name=first_name, last_name=last_name)
+                created = True
+            else:
+                created = False
+            await auth_client.reset_user_password(user_id=user.id, new_password=password)
+            for namespace, resource_id, role_id in ADMIN_GRANTS:
+                await permission_service.grant_access(user_id=user.id, namespace=namespace, resource_id=resource_id, role_id=role_id)
+            try:
+                await rbac_service.grant_role(user_id=user.id, role_name=ROLE_NAME, operator="admin-helper")
+                await session.commit()
+                rbac_status = f"{GREEN}выдана{RESET}"
+            except RoleNotFoundError:
+                await session.rollback()
+                rbac_status = f"{RED}роль не найдена — прогоните карточку 18{RESET}"
+
+            action = "создан новый пользователь" if created else "использован существующий пользователь"
+            print(f"{GREEN}[OK]{RESET} {action}")
+            print("")
+            print(f"  email:     {EMAIL}")
+            print(f"  password:  {password}")
+            print(f"  user_id:   {user.id}")
+            print(f"  RBAC-роль {ROLE_NAME!r}: {rbac_status}")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "create-tech-user",
+    title: "10. Создать tech user (без admin)",
+    pods: [POD_HEIMDALL],
+    hint: "Создаёт или находит пользователя, ставит пароль. Без admin grants.",
+    fields: [
+      { id: "email", type: "email", label: "Email", placeholder: "tech-user@example.com" },
+      { id: "password", type: "password", label: "Пароль", placeholder: "оставьте пустым — сгенерируется случайный" },
+      { id: "fio", type: "text", label: "ФИО (необязательно)", placeholder: "Иванов Иван Иванович" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, secrets, string, sys, httpx
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAIL = ${emailPy(v.email)}
+PASSWORD = ${passwordPy(v.password)}
+FIO = ${fioPy(v.fio)}
+
+def make_password(length=24):
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
+    while True:
+        password = "".join(secrets.choice(alphabet) for _ in range(length))
+        if any(c.islower() for c in password) and any(c.isupper() for c in password) and any(c.isdigit() for c in password) and any(c in "!@#$%^&*()-_=+" for c in password):
+            return password
+
+async def main():
+    if not EMAIL or "@" not in EMAIL:
+        print(f"{RED}ERROR:{RESET} заполните корректный email")
+        sys.exit(2)
+
+    password = PASSWORD or make_password()
+    settings = get_settings()
+    async with httpx.AsyncClient() as http:
+        auth_client = AuthClient(
+            config=KeycloakProviderConfig(
+                issuer_url=settings.provider_issuer_url,
+                realm=settings.provider_realm,
+                client_id=settings.provider_client_id,
+                client_secret=settings.provider_client_secret,
+            ),
+            http_client=http,
+        )
+        if FIO:
+            parts = FIO.split()
+            last_name = parts[0]
+            first_name = " ".join(parts[1:]) if len(parts) > 1 else "Technical"
+        else:
+            last_name = "User"
+            first_name = "Technical"
+        user = await auth_client.find_user_by_email(email=EMAIL)
+        if user is None:
+            user = await auth_client.create_provider_user(email=EMAIL, first_name=first_name, last_name=last_name)
+            created = True
+        else:
+            created = False
+        await auth_client.reset_user_password(user_id=user.id, new_password=password)
+
+        action = "создан новый пользователь" if created else "использован существующий пользователь"
+        print(f"{GREEN}[OK]{RESET} {action}")
+        print("")
+        print(f"  email:    {EMAIL}")
+        print(f"  password: {password}")
+        print(f"  user_id:  {user.id}")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "bootstrap-invite",
+    title: "11. Bootstrap admin invite",
+    pods: [POD_HEIMDALL],
+    hint: "Редкий сценарий: приглашение самого первого админа.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import json, os, sys, urllib.error, urllib.request, uuid
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+TOKEN_ENV_NAMES = (
+    "AUTH_INTERNAL_BFF_ACCESS_TOKEN_SECRET",
+    "SLEIPNIR_LOCAL_INTERNAL_PLATFORM_API_KEY",
+    "SLEIPNIR_GLOBAL_INTERNAL_PLATFORM_API_KEY",
+    "SLEIPNIR_INTERNAL_PLATFORM_API_KEY",
+)
+TOKEN = next((value for value in (os.environ.get(name, "").strip() for name in TOKEN_ENV_NAMES) if value), "")
+
+if not EMAILS:
+    print(f"{RED}ERROR:{RESET} заполните поле email")
+    sys.exit(2)
+if not TOKEN:
+    print(f"{RED}ERROR:{RESET} не задана ни одна из переменных: " + ", ".join(TOKEN_ENV_NAMES))
+    sys.exit(2)
+
+ok = 0
+failed = 0
+for email in EMAILS:
+    req = urllib.request.Request(
+        "http://localhost:8010/api/v1/internal/bootstrap/admin-user",
+        data=json.dumps({"idempotency_key": str(uuid.uuid4()), "email": email}).encode(),
+        headers={"content-type": "application/json", "authorization": f"Bearer {TOKEN}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            print(f"{GREEN}[OK]{RESET} {email}: status={response.status} body={response.read().decode('utf-8')}")
+            ok += 1
+    except urllib.error.HTTPError as error:
+        print(f"{RED}[FAIL]{RESET} {email}: status={error.code} body={error.read().decode('utf-8')}")
+        failed += 1
+    except urllib.error.URLError as error:
+        print(f"{RED}[FAIL]{RESET} {email}: cannot reach heimdall-auth on localhost:8010: {error}")
+        failed += 1
+
+print("")
+print(f"итого: ok={ok} failed={failed}")
+if failed:
+    sys.exit(1)
+PY`,
+  },
+  {
+    id: "reset-bootstrap",
+    title: "12. Сбросить bootstrap записи",
+    pods: [POD_HEIMDALL],
+    hint: "Чистит зависшие записи bootstrap_admin_requests.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, os, sys
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+    db_url = os.environ["AUTH_DATABASE_URL"]
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    engine = create_async_engine(db_url)
+    cleaned = 0
+    untouched = 0
+    async with engine.begin() as conn:
+        for email in EMAILS:
+            res = await conn.execute(
+                text("DELETE FROM bootstrap_admin_requests WHERE email_normalized = :e"),
+                {"e": email},
+            )
+            if res.rowcount:
+                print(f"{GREEN}[OK]{RESET} {email}: удалено записей {res.rowcount}")
+                cleaned += 1
+            else:
+                print(f"{YELLOW}[SKIP]{RESET} {email}: записей не было")
+                untouched += 1
+    await engine.dispose()
+
+    print("")
+    print(f"итого: очищено={cleaned} без_записей={untouched}")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "delete-users",
+    title: "13. Удалить пользователей",
+    pods: [POD_HEIMDALL],
+    danger: true,
+    hint: "Keycloak + heimdall DB. Необратимо.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, os, sys, httpx
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+
+    print("Keycloak:")
+    deleted_provider_ids = {}
+    keycloak_deleted = 0
+    keycloak_missing = 0
+    async with httpx.AsyncClient() as http:
+        client = AuthClient(
+            config=KeycloakProviderConfig(
+                issuer_url=os.environ["AUTH_PROVIDER_ISSUER_URL"],
+                realm=os.environ["AUTH_PROVIDER_REALM"],
+                client_id=os.environ["AUTH_PROVIDER_CLIENT_ID"],
+                client_secret=os.environ["AUTH_PROVIDER_CLIENT_SECRET"],
+            ),
+            http_client=http,
+        )
+        for email in EMAILS:
+            user = await client.find_user_by_email(email=email)
+            if user is None:
+                print(f"  {YELLOW}[SKIP]{RESET} {email}: в Keycloak не найден")
+                keycloak_missing += 1
+            else:
+                deleted_provider_ids[email] = user.id
+                await client.delete_provider_user(user_id=user.id)
+                print(f"  {GREEN}[OK]{RESET} {email}: удалён (id={user.id})")
+                keycloak_deleted += 1
+
+    print("")
+    print("heimdall DB (токены, согласия, сессии, 2FA, access_grants, RBAC-роли и маркеры bootstrap):")
+    db_url = os.environ["AUTH_DATABASE_URL"]
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    engine = create_async_engine(db_url)
+    async with engine.begin() as conn:
+        for email in EMAILS:
+            rows_deleted = 0
+            for sql, params in [
+                ("DELETE FROM invite_tokens WHERE email_normalized=:e", {"e": email}),
+                ("DELETE FROM password_reset_tokens WHERE email_normalized=:e", {"e": email}),
+                ("DELETE FROM bootstrap_admin_requests WHERE email_normalized=:e", {"e": email}),
+                ("DELETE FROM user_legal_consents WHERE email_normalized=:e", {"e": email}),
+            ]:
+                res = await conn.execute(text(sql), params)
+                rows_deleted += res.rowcount
+            user_id = deleted_provider_ids.get(email)
+            if user_id:
+                for sql, params in [
+                    ("DELETE FROM browser_sessions WHERE provider_subject=:u", {"u": user_id}),
+                    ("DELETE FROM offline_sessions WHERE provider_subject=:u", {"u": user_id}),
+                    ("DELETE FROM auth_flows WHERE user_id=:u OR provider_subject=:u", {"u": user_id}),
+                    ("DELETE FROM user_totp_settings WHERE user_id=:u", {"u": user_id}),
+                    ("DELETE FROM user_legal_consents WHERE provider_user_id=:u", {"u": user_id}),
+                    ("DELETE FROM user_profile_preferences WHERE provider_user_id=:u", {"u": user_id}),
+                    ("DELETE FROM access_grants WHERE user_id=:u", {"u": user_id}),
+                    ("DELETE FROM user_global_roles WHERE user_id=:u", {"u": user_id}),
+                    ("DELETE FROM user_entity_roles WHERE user_id=:u", {"u": user_id}),
+                    ("DELETE FROM user_role_bootstrap WHERE user_id=:u", {"u": user_id}),
+                    ("DELETE FROM rbac_first_admin_bootstrap WHERE user_id=:u", {"u": user_id}),
+                ]:
+                    res = await conn.execute(text(sql), params)
+                    rows_deleted += res.rowcount
+            print(f"  {email}: удалено строк — {rows_deleted}")
+    await engine.dispose()
+
+    print("")
+    print(f"итого: keycloak_удалено={keycloak_deleted} keycloak_не_найдено={keycloak_missing}")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "reset-onboarding",
+    title: "14. Сбросить onboarding",
+    pods: [POD_YGGDRASIL],
+    hint: "Сбрасывает прогресс онбординга.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `python <<'PY'
+import asyncio, os, sys, asyncpg
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+    db_url = os.environ["YGGDRASIL_DATABASE_URL"]
+    if db_url.startswith("postgresql+asyncpg://"):
+        db_url = db_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    conn = await asyncpg.connect(db_url)
+    reset_count = 0
+    not_found = 0
+    try:
+        for email in EMAILS:
+            user_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", email)
+            if user_id is None:
+                print(f"{YELLOW}[SKIP]{RESET} {email}: пользователь не найден")
+                not_found += 1
+                continue
+            result = await conn.execute("DELETE FROM onboarding_states WHERE user_id = $1", user_id)
+            print(f"{GREEN}[OK]{RESET} {email}: {result}")
+            reset_count += 1
+    finally:
+        await conn.close()
+
+    print("")
+    print(f"итого: сброшено={reset_count} не_найдено={not_found}")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "reset-password",
+    title: "15. Сбросить пароль",
+    pods: [POD_HEIMDALL],
+    hint: "«Сразу пароль» — ставит его в Keycloak напрямую. «Письмо» — обычный self-service сброс.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+      { id: "mode", type: "select", label: "Режим", options: [
+        { value: "immediate", label: "Сразу новый пароль" },
+        { value: "email", label: "Письмо со ссылкой" },
+      ] },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, secrets, string, sys, httpx
+from contextlib import AsyncExitStack
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.transactions import DatabaseTransactionManager
+except ModuleNotFoundError:
+    from auth_service.db.transactions import DatabaseTransactionManager
+from auth_service.features.offline_session.repository import OfflineSessionRepository
+from auth_service.features.password_reset.jobs_publisher import RestatePasswordResetJobsPublisher
+from auth_service.features.password_reset.repository import PasswordResetTokenRepository
+from auth_service.features.password_reset.service import PasswordResetService
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+MODE = "${v.mode}"
+
+def make_password(length=24):
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
+    while True:
+        password = "".join(secrets.choice(alphabet) for _ in range(length))
+        if any(c.islower() for c in password) and any(c.isupper() for c in password) and any(c.isdigit() for c in password) and any(c in "!@#$%^&*()-_=+" for c in password):
+            return password
+
+def build_auth_client(settings, http):
+    return AuthClient(
+        config=KeycloakProviderConfig(
+            issuer_url=settings.provider_issuer_url,
+            realm=settings.provider_realm,
+            client_id=settings.provider_client_id,
+            client_secret=settings.provider_client_secret,
+        ),
+        http_client=http,
+    )
+
+async def build_password_reset_service(stack, db, settings, http, auth_client):
+    session = await stack.enter_async_context(db.session())
+    return PasswordResetService(
+        repository=PasswordResetTokenRepository(session),
+        transaction_manager=DatabaseTransactionManager(session),
+        auth_client=auth_client,
+        jobs_publisher=RestatePasswordResetJobsPublisher(http_client=http, settings=settings),
+        offline_session_repository=OfflineSessionRepository(session),
+        settings=settings,
+    )
+
+async def reset_immediate(auth_client, email):
+    user = await auth_client.find_user_by_email(email=email)
+    if user is None:
+        return "not_found", None
+    password = make_password()
+    await auth_client.reset_user_password(user_id=user.id, new_password=password)
+    return "ok", (password, user.id)
+
+async def reset_via_email(service, auth_client, email):
+    user = await auth_client.find_user_by_email(email=email)
+    if user is None:
+        return "not_found"
+    await service.request_password_reset(
+        email=email,
+        requested_ip=None,
+        user_agent="heimdall-admin-helper",
+    )
+    return "ok"
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+    if any("@" not in email for email in EMAILS):
+        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+        sys.exit(2)
+    if MODE not in ("immediate", "email"):
+        print(f"{RED}ERROR:{RESET} unknown MODE:", MODE)
+        sys.exit(2)
+
+    settings = get_settings()
+    ok = 0
+    not_found = 0
+    failed = 0
+    print(f"режим: {MODE}")
+    print("")
+
+    if MODE == "immediate":
+        async with httpx.AsyncClient() as http:
+            auth_client = build_auth_client(settings, http)
+            for email in EMAILS:
+                try:
+                    status, payload = await reset_immediate(auth_client, email)
+                except Exception as error:
+                    print(f"{RED}[FAIL]{RESET} {email}: {error!r}")
+                    failed += 1
+                    continue
+                if status == "not_found":
+                    print(f"{YELLOW}[SKIP]{RESET} {email}: не найден в Keycloak — сначала пригласите (карточка 1)")
+                    not_found += 1
+                    continue
+                password, user_id = payload
+                print(f"{GREEN}[OK]{RESET} {email}: user_id={user_id}")
+                print(f"  password: {password}")
+                ok += 1
+    else:
+        db = Database(settings)
+        async with AsyncExitStack() as stack:
+            stack.push_async_callback(db.close)
+            async with httpx.AsyncClient() as http:
+                auth_client = build_auth_client(settings, http)
+                service = await build_password_reset_service(stack, db, settings, http, auth_client)
+                for email in EMAILS:
+                    try:
+                        status = await reset_via_email(service, auth_client, email)
+                    except Exception as error:
+                        print(f"{RED}[FAIL]{RESET} {email}: {error!r}")
+                        failed += 1
+                        continue
+                    if status == "not_found":
+                        print(f"{YELLOW}[SKIP]{RESET} {email}: не найден в Keycloak — сначала пригласите (карточка 1)")
+                        not_found += 1
+                        continue
+                    print(f"{GREEN}[OK]{RESET} {email}: письмо отправлено (в DEBUG ссылка в логах — password_reset_debug_url)")
+                    ok += 1
+
+    print("")
+    print(f"итого: ok={ok} not_found={not_found} failed={failed}")
+    if failed:
+        sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "email-preview",
+    title: "16. Превью писем",
+    pods: [POD_HEIMDALL],
+    hint: "Реальная отправка по SMTP — посмотреть вёрстку письма. Ссылки — заглушки.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+      { id: "kind", type: "select", label: "Тип письма", options: [
+        { value: "all", label: "Все письма" },
+        { value: "password_reset", label: "Сброс пароля" },
+        { value: "new_corp_domain", label: "Self-service: новый домен" },
+        { value: "existing_domain", label: "Self-service: существующий домен" },
+        { value: "whitelist_demo", label: "Self-service: white-list demo" },
+      ] },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys
+try:
+    from auth_service.bootstrap.config import AppMode
+except ModuleNotFoundError:
+    from auth_service.app_mode import AppMode
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+from auth_service.email.self_service import SelfServiceEmailScenario
+from auth_service.features.invitations.mail import create_invitation_mail_sender
+from auth_service.features.password_reset.mail import create_password_reset_mail_sender
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+KIND = "${v.kind}"
+
+# Демо-данные только для визуальной проверки вёрстки писем.
+INVITE_URL = "https://cowork.ru/invite/accept?token=PREVIEW-TOKEN"
+RESET_URL = "https://cowork.ru/reset-password?token=PREVIEW-TOKEN"
+DOMAIN = "example.ru"
+ALL_KINDS = ("new_corp_domain", "existing_domain", "whitelist_demo", "password_reset")
+
+async def send_kind(invite_sender, reset_sender, kind, email):
+    if kind == "password_reset":
+        await reset_sender.send_password_reset_email(to_email=email, reset_url=RESET_URL)
+    elif kind == "new_corp_domain":
+        await invite_sender.send_invitation_email(to_email=email, invite_url=INVITE_URL, scenario=SelfServiceEmailScenario.NEW_CORP_DOMAIN, domain=DOMAIN)
+    elif kind == "existing_domain":
+        await invite_sender.send_invitation_email(to_email=email, invite_url=INVITE_URL, scenario=SelfServiceEmailScenario.EXISTING_DOMAIN)
+    elif kind == "whitelist_demo":
+        await invite_sender.send_invitation_email(to_email=email, invite_url=INVITE_URL, scenario=SelfServiceEmailScenario.WHITELIST_DEMO)
+    else:
+        raise ValueError(f"unknown email kind: {kind}")
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+    if any("@" not in email for email in EMAILS):
+        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+        sys.exit(2)
+
+    settings = get_settings()
+    if settings.app_mode == AppMode.DEBUG:
+        print(f"{RED}ERROR:{RESET} стенд в режиме DEBUG — письма не отправляются, ссылки пишутся в логи")
+        sys.exit(2)
+    if not settings.mail_smtp_host:
+        print(f"{RED}ERROR:{RESET} SMTP не настроен (mail_smtp_host пуст) — письма не уйдут")
+        sys.exit(2)
+
+    invite_sender = create_invitation_mail_sender(settings)
+    reset_sender = create_password_reset_mail_sender(settings)
+    kinds = list(ALL_KINDS) if KIND == "all" else [KIND]
+    print(f"отправляю {len(kinds)} тип(а) писем на {len(EMAILS)} email: {', '.join(kinds)}")
+    print("")
+    failed = 0
+    for email in EMAILS:
+        for kind in kinds:
+            try:
+                await send_kind(invite_sender, reset_sender, kind, email)
+                print(f"{GREEN}[OK]{RESET} {email}: {kind}")
+            except Exception as error:
+                print(f"{RED}[FAIL]{RESET} {email}: {kind}: {error!r}")
+                failed += 1
+    total = len(EMAILS) * len(kinds)
+    print("")
+    print(f"итого: ok={total - failed} failed={failed} писем={total}")
+    if failed:
+        sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "grant-roles-manage",
+    title: "17. Назначить роль «Администратор» (RBAC)",
+    pods: [POD_HEIMDALL],
+    hint: "Только RBAC, без legacy access_grants. Роль даёт roles.manage, users.manage, workspace.manage, connectors.manage разом.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+from auth_service.cli.rbac.errors import RoleNotFoundError
+from auth_service.cli.rbac.service import RbacCliService
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+from auth_service.features.rbac.read_repository import RbacReadRepository
+from auth_service.features.rbac.write_repository import RbacWriteRepository
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+ROLE_NAME = "Администратор"
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+
+    settings = get_settings()
+    db = Database(settings)
+    assigned = 0
+    already = 0
+    failed = 0
+    try:
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            async with db.session() as session:
+                service = RbacCliService(
+                    read_repository=RbacReadRepository(session),
+                    write_repository=RbacWriteRepository(session),
+                )
+                for email in EMAILS:
+                    user = await auth_client.find_user_by_email(email=email)
+                    if user is None:
+                        print(f"{RED}[FAIL]{RESET} {email}: user not found in provider")
+                        failed += 1
+                        continue
+                    try:
+                        is_new = await service.grant_role(
+                            user_id=user.id, role_name=ROLE_NAME, operator="admin-helper"
+                        )
+                    except RoleNotFoundError:
+                        print(f"{RED}[FAIL]{RESET} {email}: роль {ROLE_NAME!r} не найдена в этом стенде — сначала прогоните карточку 18")
+                        failed += 1
+                        continue
+                    if is_new:
+                        print(f"{GREEN}[OK]{RESET} {email}: роль {ROLE_NAME!r} назначена, user_id={user.id}")
+                        assigned += 1
+                    else:
+                        print(f"{YELLOW}[SKIP]{RESET} {email}: роль {ROLE_NAME!r} уже была назначена")
+                        already += 1
+                await session.commit()
+    finally:
+        await db.close()
+
+    print("")
+    print(f"итого: назначено={assigned} уже_было={already} failed={failed}")
+    if failed:
+        sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "first-admin-bootstrap",
+    title: "18. Первый админ",
+    pods: [POD_HEIMDALL],
+    hint: "Проверяет условия автовыдачи роли «Администратор» первому логину. Email — опционально, чтобы сбросить маркер и протестировать заново.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email для сброса (необязательно)", placeholder: "оставьте пустым, если нужна только проверка" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, httpx
+from sqlalchemy import delete, select, text
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import BootstrapAdminRequestModel, GlobalRoleModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import BootstrapAdminRequestModel, GlobalRoleModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import BootstrapAdminRequestModel, GlobalRoleModel
+from auth_service.features.rbac.write_repository import RbacWriteRepository
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+RESET_EMAILS = ${emailsPy(v.emails)}
+ROLE_NAME = "Администратор"
+ROLE_PERMISSIONS = ["roles.manage", "users.manage", "workspace.manage", "connectors.manage"]
+
+async def main():
+    settings = get_settings()
+    db = Database(settings)
+    try:
+        print("проверка условий автовыдачи роли:")
+        async with db.session() as session:
+            result = await session.execute(select(GlobalRoleModel).where(GlobalRoleModel.name == ROLE_NAME))
+            role = result.scalar_one_or_none()
+            if role is None:
+                print(f"  {YELLOW}[WARN]{RESET} роль {ROLE_NAME!r} не найдена — должна сеяться автоматически из permissions/global.yaml. Создаю как safety-net.")
+                repo = RbacWriteRepository(session)
+                role_id = await repo.upsert_role(name=ROLE_NAME, is_default=False, is_system=True, description="Полный доступ к системе")
+                await repo.add_role_permissions(role_id=role_id, permission_ids=ROLE_PERMISSIONS)
+                await session.commit()
+                print(f"  {GREEN}[OK]{RESET} роль {ROLE_NAME!r} создана, role_id={role_id}")
+            else:
+                print(f"  {GREEN}[OK]{RESET} роль {ROLE_NAME!r} существует, role_id={role.role_id}")
+
+        async with db.session() as session:
+            result = await session.execute(
+                select(BootstrapAdminRequestModel).where(BootstrapAdminRequestModel.status.in_(["pending", "accepted"]))
+            )
+            rows = list(result.scalars())
+            if rows:
+                print(f"  {YELLOW}[WARN]{RESET} {len(rows)} pending/accepted bootstrap_admin_requests — автоматика НЕ сработает, пока они есть:")
+                for r in rows:
+                    print(f"      - email={r.email_normalized} status={r.status}")
+            else:
+                print(f"  {GREEN}[OK]{RESET} bootstrap_admin_requests пуст — не блокирует автоматику")
+
+        async with db.session() as session:
+            singleton = (await session.execute(text("SELECT user_id, created_at FROM rbac_first_admin_bootstrap WHERE lock_key = 1"))).first()
+            if singleton:
+                print(f"  {YELLOW}[INFO]{RESET} singleton уже занят: user_id={singleton[0]} at {singleton[1]}")
+            else:
+                print(f"  {GREEN}[OK]{RESET} singleton свободен — следующий чистый первый логин получит роль администратора")
+
+        if not RESET_EMAILS:
+            return
+
+        print("")
+        print("сброс bootstrap-маркеров:")
+
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            for email in RESET_EMAILS:
+                user = await auth_client.find_user_by_email(email=email)
+                if user is None:
+                    print(f"  {YELLOW}[SKIP]{RESET} {email}: не найден в provider")
+                    continue
+                async with db.session() as session:
+                    await session.execute(text("DELETE FROM user_role_bootstrap WHERE user_id = :uid"), {"uid": user.id})
+                    await session.execute(text("DELETE FROM rbac_first_admin_bootstrap WHERE lock_key = 1"))
+                    await session.commit()
+                print(f"  {GREEN}[OK]{RESET} {email}: маркер и singleton сброшены — можно логиниться заново")
+    finally:
+        await db.close()
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "all-users",
+    title: "19. Все пользователи (подробно)",
+    pods: [POD_HEIMDALL],
+    hint: "Email, имя, статус, дата создания, user_id всех пользователей из Keycloak.",
+    fields: [],
+    render: () => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from datetime import datetime, timezone
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+
+async def main():
+    settings = get_settings()
+    base_url = settings.provider_issuer_url.split("/realms/")[0]
+    realm = settings.provider_realm
+
+    async with httpx.AsyncClient() as http:
+        token_resp = await http.post(
+            f"{base_url}/realms/{realm}/protocol/openid-connect/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": settings.provider_client_id,
+                "client_secret": settings.provider_client_secret,
+            },
+        )
+        token_resp.raise_for_status()
+        access_token = token_resp.json()["access_token"]
+
+        all_users = []
+        first = 0
+        page_size = 100
+        while True:
+            resp = await http.get(
+                f"{base_url}/admin/realms/{realm}/users",
+                params={"first": first, "max": page_size},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            resp.raise_for_status()
+            users = resp.json()
+            if not users:
+                break
+            all_users.extend(users)
+            if len(users) < page_size:
+                break
+            first += page_size
+
+    all_users.sort(key=lambda u: u.get("email", "").lower())
+    print(f"Total: {len(all_users)}")
+    print()
+    for u in all_users:
+        email = u.get("email", "—")
+        name = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip() or "—"
+        uid = u.get("id", "—")
+        status = "active" if u.get("enabled") else "disabled"
+        ts = u.get("createdTimestamp")
+        created = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d") if ts else "—"
+        print(f"{email}  |  {name}  |  {status}  |  created={created}  |  id={uid}")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "all-invites",
+    title: "20. Все приглашения (статус)",
+    pods: [POD_HEIMDALL],
+    hint: "Показывает все invite-токены из БД: кто принял, кто ждёт, у кого истекло.",
+    fields: [],
+    render: () => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from datetime import UTC, datetime
+from sqlalchemy import select
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import InviteTokenModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import InviteTokenModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import InviteTokenModel
+
+async def main():
+    settings = get_settings()
+    db = Database(settings)
+    accepted = waiting = expired = other = 0
+    try:
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            async with db.session() as session:
+                result = await session.execute(
+                    select(InviteTokenModel).order_by(InviteTokenModel.updated_at.desc())
+                )
+                tokens = list(result.scalars())
+
+            print(f"Total invite tokens: {len(tokens)}")
+            print()
+            for token in tokens:
+                email = token.email_normalized
+                user = await auth_client.find_user_by_email(email=email)
+                exp = token.expires_at
+                if exp.tzinfo is None:
+                    exp = exp.replace(tzinfo=UTC)
+                if user is not None:
+                    print(f"[ACCEPTED]  {email}  |  user_id={user.id}")
+                    accepted += 1
+                elif token.status == "pending" and exp > datetime.now(UTC):
+                    print(f"[WAITING]   {email}  |  expires={exp:%Y-%m-%d %H:%M} UTC")
+                    waiting += 1
+                elif exp <= datetime.now(UTC):
+                    print(f"[EXPIRED]   {email}  |  expired={exp:%Y-%m-%d %H:%M} UTC")
+                    expired += 1
+                else:
+                    print(f"[{token.status.upper()}]  {email}  |  status={token.status}")
+                    other += 1
+    finally:
+        await db.close()
+
+    print()
+    print(f"итого: приняли={accepted} ждут={waiting} истекло={expired} прочее={other}")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "revoke-all-admin-grants",
+    title: "21. Снять весь админский доступ",
+    pods: [POD_HEIMDALL],
+    danger: true,
+    hint: "Отзывает RBAC-роль «Администратор» и все legacy access_grants в namespace admin, admin.users, admin.connectors.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from sqlalchemy import delete
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+from auth_service.cli.rbac.errors import RoleNotFoundError
+from auth_service.cli.rbac.service import RbacCliService
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import AccessGrantModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import AccessGrantModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import AccessGrantModel
+from auth_service.features.rbac.read_repository import RbacReadRepository
+from auth_service.features.rbac.write_repository import RbacWriteRepository
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+ROLE_NAME = "Администратор"
+ADMIN_GRANTS = (
+    ("admin", "global", "admin.admin"),
+    ("admin.users", "global", "admin.users.admin"),
+    ("admin.connectors", "global", "admin.connectors.admin"),
+)
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+    if any("@" not in email for email in EMAILS):
+        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+        sys.exit(2)
+
+    settings = get_settings()
+    db = Database(settings)
+    revoked = 0
+    failed = 0
+    try:
+        async with httpx.AsyncClient() as http:
+            auth_client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            for email in EMAILS:
+                user = await auth_client.find_user_by_email(email=email)
+                if user is None:
+                    print(f"{RED}[FAIL]{RESET} {email}: user not found in Keycloak")
+                    failed += 1
+                    continue
+                grants_deleted = 0
+                async with db.session() as session:
+                    for namespace, resource_id, role_id in ADMIN_GRANTS:
+                        res = await session.execute(
+                            delete(AccessGrantModel).where(
+                                AccessGrantModel.user_id == user.id,
+                                AccessGrantModel.namespace == namespace,
+                                AccessGrantModel.resource_id == resource_id,
+                                AccessGrantModel.role_id == role_id,
+                            )
+                        )
+                        grants_deleted += res.rowcount
+                    rbac_service = RbacCliService(
+                        read_repository=RbacReadRepository(session),
+                        write_repository=RbacWriteRepository(session),
+                    )
+                    try:
+                        was_assigned = await rbac_service.revoke_role(user_id=user.id, role_name=ROLE_NAME)
+                        rbac_status = "отозвана" if was_assigned else "не была назначена"
+                    except RoleNotFoundError:
+                        rbac_status = f"{YELLOW}роли нет на стенде{RESET}"
+                    await session.commit()
+                print(f"{GREEN}[OK]{RESET} {email}: user_id={user.id}")
+                print(f"  RBAC-роль {ROLE_NAME!r}: {rbac_status}")
+                print(f"  legacy grants удалено: {grants_deleted}")
+                revoked += 1
+    finally:
+        await db.close()
+
+    print("")
+    print(f"итого: обработано={revoked} failed={failed}")
+    if failed:
+        sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "audit-events-access",
+    title: "22. Доступ к аудиту событий",
+    pods: [POD_HEIMDALL],
+    hint: "Роль audit.admin — раздел «События» в админке: просмотр, выгрузка, удаление файлов. Ресурсная модель, с RBAC-ролями не связана.",
+    fields: [
+      { id: "mode", type: "select", label: "Действие", options: [
+        { value: "grant", label: "Выдать доступ" },
+        { value: "check", label: "Кто имеет доступ" },
+        { value: "revoke", label: "Отозвать доступ" },
+      ] },
+      { id: "emails", type: "emails", label: "Email (для выдачи и отзыва)", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from contextlib import AsyncExitStack
+from sqlalchemy import delete, select
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import AccessGrantModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import AccessGrantModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import AccessGrantModel
+try:
+    from auth_service.infrastructure.db.transactions import DatabaseTransactionManager
+except ModuleNotFoundError:
+    from auth_service.db.transactions import DatabaseTransactionManager
+from auth_service.features.permissions.manifest_loader import load_permission_manifests
+from auth_service.features.permissions.repository import PermissionRepository
+from auth_service.features.permissions.service import PermissionService
+from auth_service.main import PERMISSIONS_DIR
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+MODE = "${v.mode}"
+NAMESPACE = "audit"
+RESOURCE_ID = "global"
+ROLE_ID = "audit.admin"
+
+def build_auth_client(settings, http):
+    return AuthClient(
+        config=KeycloakProviderConfig(
+            issuer_url=settings.provider_issuer_url,
+            realm=settings.provider_realm,
+            client_id=settings.provider_client_id,
+            client_secret=settings.provider_client_secret,
+        ),
+        http_client=http,
+    )
+
+async def run_check(session, auth_client):
+    result = await session.execute(
+        select(AccessGrantModel)
+        .where(
+            AccessGrantModel.namespace == NAMESPACE,
+            AccessGrantModel.resource_id == RESOURCE_ID,
+        )
+        .order_by(AccessGrantModel.user_id)
+    )
+    grants = list(result.scalars())
+    if not grants:
+        print(f"{YELLOW}[INFO]{RESET} доступа к аудиту событий нет ни у кого")
+        return 0
+
+    print(f"найдено грантов: {len(grants)} ({NAMESPACE}/{RESOURCE_ID})")
+    print("")
+    alive = 0
+    for grant in grants:
+        user = await auth_client.get_provider_user_by_id(user_id=grant.user_id)
+        if user is None:
+            print(f"{YELLOW}[WARN]{RESET} user_id={grant.user_id}: не найден в provider (zombie-грант)")
+        else:
+            print(f"{GREEN}[OK]{RESET} email={user.email} role={grant.role_id} enabled={user.enabled}")
+            alive += 1
+    print("")
+    print(f"итого: {alive} активных из {len(grants)} грантов")
+    return 0
+
+async def run_grant(service, auth_client, registry):
+    permissions = sorted(registry.get_namespace(NAMESPACE).permissions_by_role(ROLE_ID))
+    print(f"роль {ROLE_ID} даёт: {', '.join(permissions)}")
+    print("")
+    granted = failed = 0
+    for email in EMAILS:
+        user = await auth_client.find_user_by_email(email=email)
+        if user is None:
+            print(f"{RED}[FAIL]{RESET} {email}: не найден в provider")
+            failed += 1
+            continue
+        grant = await service.grant_access(
+            user_id=user.id,
+            namespace=NAMESPACE,
+            resource_id=RESOURCE_ID,
+            role_id=ROLE_ID,
+        )
+        print(f"{GREEN}[OK]{RESET} {email}: user_id={user.id} выдано {grant.namespace}/{grant.resource_id}/{grant.role_id}")
+        granted += 1
+    print("")
+    print(f"итого: выдано={granted} failed={failed}")
+    return 1 if failed else 0
+
+async def run_revoke(session, auth_client):
+    revoked = absent = failed = 0
+    for email in EMAILS:
+        user = await auth_client.find_user_by_email(email=email)
+        if user is None:
+            print(f"{RED}[FAIL]{RESET} {email}: не найден в provider")
+            failed += 1
+            continue
+        result = await session.execute(
+            delete(AccessGrantModel).where(
+                AccessGrantModel.user_id == user.id,
+                AccessGrantModel.namespace == NAMESPACE,
+                AccessGrantModel.resource_id == RESOURCE_ID,
+            )
+        )
+        if result.rowcount:
+            print(f"{GREEN}[OK]{RESET} {email}: user_id={user.id} доступ отозван")
+            revoked += 1
+        else:
+            print(f"{YELLOW}[SKIP]{RESET} {email}: доступа и так не было")
+            absent += 1
+    await session.commit()
+    print("")
+    print(f"итого: отозвано={revoked} уже_не_было={absent} failed={failed}")
+    return 1 if failed else 0
+
+async def main():
+    if MODE not in ("grant", "check", "revoke"):
+        print(f"{RED}ERROR:{RESET} unknown MODE:", MODE)
+        sys.exit(2)
+    if MODE != "check":
+        if not EMAILS:
+            print(f"{RED}ERROR:{RESET} заполните поле email")
+            sys.exit(2)
+        if any("@" not in email for email in EMAILS):
+            print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+            sys.exit(2)
+
+    settings = get_settings()
+    registry = load_permission_manifests(PERMISSIONS_DIR)
+    if registry.find_namespace(NAMESPACE) is None:
+        print(f"{RED}ERROR:{RESET} namespace {NAMESPACE!r} не зарегистрирован в этом образе пода")
+        print("available namespaces:", ", ".join(sorted(registry.namespaces)) or "<empty>")
+        sys.exit(2)
+
+    db = Database(settings)
+    print(f"режим: {MODE}")
+    print("")
+    async with AsyncExitStack() as stack:
+        stack.push_async_callback(db.close)
+        session = await stack.enter_async_context(db.session())
+        service = PermissionService(
+            repository=PermissionRepository(session),
+            registry=registry,
+            transaction_manager=DatabaseTransactionManager(session),
+        )
+        http = await stack.enter_async_context(httpx.AsyncClient())
+        auth_client = build_auth_client(settings, http)
+
+        if MODE == "check":
+            code = await run_check(session, auth_client)
+        elif MODE == "grant":
+            code = await run_grant(service, auth_client, registry)
+        else:
+            code = await run_revoke(session, auth_client)
+
+    if code:
+        sys.exit(code)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "dev-onboarding-email",
+    title: "23. Письмо разработчику о доступах на dev",
+    pods: [POD_HEIMDALL],
+    hint: "Одно письмо со списком стендов и паролем. Пароль не задаётся здесь, а выводится из ключа — тем же кодом, что и у джобы. Доступы выдаёт CronJob, карточка только уведомляет.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email разработчиков", placeholder: "ivanov@sberdevices.ru" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, os, sys, httpx
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+from auth_service.features.dev_onboarding.password import derive_password
+from auth_service.features.dev_onboarding.service import parse_developer_emails
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+TOKEN_ENV_NAMES = (
+    "AUTH_INTERNAL_BFF_ACCESS_TOKEN_SECRET",
+    "SLEIPNIR_LOCAL_INTERNAL_PLATFORM_API_KEY",
+    "SLEIPNIR_GLOBAL_INTERNAL_PLATFORM_API_KEY",
+    "SLEIPNIR_INTERNAL_PLATFORM_API_KEY",
+)
+TOKEN = next((value for value in (os.environ.get(name, "").strip() for name in TOKEN_ENV_NAMES) if value), "")
+
+# Список стендов из argocd/dev/cowork/stands. Появился новый — допишите сюда.
+STANDS = (
+    "cowork-dev-01", "cowork-dev-02", "cowork-dev-03",
+    "cowork-dev-agent-team-01", "cowork-dev-ai-team-01", "cowork-dev-dvps-01",
+    "cowork-dev-int-team-01", "cowork-dev-loadtest-01", "cowork-dev-preview",
+    "cowork-dev-qa-01", "cowork-dev-qa-02", "cowork-dev-qa-03",
+    "cowork-dev-qa-04", "cowork-dev-qa-05", "cowork-dev-qa-06", "cowork-dev-qa-07",
+)
+SUBJECT = "Доступы к dev-стендам GigaCowork"
+
+def build_body(email, password, domain):
+    stands = "\\n".join(f"  https://{stand}.{domain}" for stand in STANDS)
+    return (
+        "Привет!\\n\\n"
+        "Тебе открыт доступ ко всем dev-стендам GigaCowork. Логин везде одинаковый:\\n\\n"
+        f"  {email}\\n\\n"
+        "На стендах, где аккаунта у тебя ещё не было, он заведён с паролем:\\n\\n"
+        f"  {password}\\n\\n"
+        "Там, где ты уже заходил раньше, аккаунт остался прежним — заходи своим старым "
+        "паролем, этот к нему не подойдёт.\\n\\n"
+        "Стенды:\\n"
+        f"{stands}\\n\\n"
+        "Пароль бессрочный, менять при первом входе не нужно. Стенды, которые поднимут "
+        "позже, заведут тебе аккаунт сами и с этим же паролем.\\n"
+    )
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните поле email")
+        sys.exit(2)
+    if any("@" not in email for email in EMAILS):
+        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+        sys.exit(2)
+    if not TOKEN:
+        print(f"{RED}ERROR:{RESET} не задана ни одна из переменных: " + ", ".join(TOKEN_ENV_NAMES))
+        sys.exit(2)
+
+    settings = get_settings()
+    onboarded = set(parse_developer_emails(settings.dev_onboarding_developers))
+    missing = [email for email in EMAILS if email not in onboarded]
+    if missing:
+        print(f"{RED}ERROR:{RESET} этих адресов нет в списке онбординга, аккаунты им никто не заведёт:")
+        for email in missing:
+            print(" -", email)
+        print("сначала добавьте их в AUTH_DEV_ONBOARDING_DEVELOPERS в Vault")
+        sys.exit(2)
+    if not settings.dev_onboarding_key.strip():
+        print(f"{RED}ERROR:{RESET} AUTH_DEV_ONBOARDING_KEY не задан, пароль вывести не из чего")
+        sys.exit(2)
+
+    domain = settings.base_domain.strip()
+    if not domain:
+        print(f"{RED}ERROR:{RESET} AUTH_BASE_DOMAIN не задан, ссылки на стенды собрать не из чего")
+        sys.exit(2)
+    print(f"домен стендов: {domain}, стендов в списке: {len(STANDS)}")
+    print("")
+
+    sent = failed = 0
+    async with httpx.AsyncClient(timeout=30, trust_env=False) as http:
+        for email in EMAILS:
+            password = derive_password(key=settings.dev_onboarding_key, email=email)
+            try:
+                response = await http.post(
+                    "http://localhost:8010/api/v1/internal/emails/send",
+                    json={"to": email, "subject": SUBJECT, "body": build_body(email, password, domain)},
+                    headers={"authorization": f"Bearer {TOKEN}"},
+                )
+            except httpx.HTTPError as error:
+                print(f"{RED}[FAIL]{RESET} {email}: heimdall-auth недоступен на localhost:8010: {error!r}")
+                failed += 1
+                continue
+            if response.status_code >= 400:
+                print(f"{RED}[FAIL]{RESET} {email}: status={response.status_code} {response.text}")
+                failed += 1
+            else:
+                print(f"{GREEN}[SENT]{RESET} {email}: job_id={response.json().get('job_id')}")
+                sent += 1
+
+    print("")
+    print(f"итого: отправлено={sent} failed={failed}")
+    if failed:
+        sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "support-feedback-test",
+    title: "24. Тестовое обращение в поддержку",
+    pods: [POD_YGGDRASIL],
+    hint: "Отправляет письмо тем же кодом, что и форма обращений, но на указанный адрес. Боевой support_email не меняется и печатается для сверки. 202 значит «поставлено в очередь» — доставку смотрите в логах heimdall-worker.",
+    fields: [
+      { id: "recipient", type: "email", label: "Кому отправить тест", placeholder: "ivanov@sberdevices.ru" },
+      { id: "user_email", type: "email", label: "Почта пользователя (Reply-To)", placeholder: "qa@gigab2b.ru" },
+      { id: "user_name", type: "text", label: "Имя пользователя", placeholder: "QA Проверка" },
+      { id: "subject", type: "text", label: "Тема", placeholder: "Тестовое обращение" },
+      { id: "message", type: "text", label: "Текст обращения", placeholder: "Проверка доставки писем из формы обращений." },
+      { id: "page_url", type: "text", label: "Страница", placeholder: "https://cowork.gigab2b.ru/chat" },
+    ],
+    render: (v) => `python <<'PY'
+import asyncio, os, sys, httpx
+
+from src.features.auth.models import AuthenticatedUser
+from src.features.support.adapters import ISupportMailAdapter
+from src.features.support.service import SupportFeedbackService
+from src.shared.bootstrap.settings import get_settings
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+RECIPIENT = ${emailPy(v.recipient)}
+USER_EMAIL = ${emailPy(v.user_email)} or "qa@gigab2b.ru"
+USER_NAME = ${fioPy(v.user_name)} or "QA Проверка"
+SUBJECT = ${fioPy(v.subject)} or "Тестовое обращение"
+MESSAGE = ${fioPy(v.message)} or "Проверка доставки писем из формы обращений."
+PAGE_URL = ${fioPy(v.page_url)} or "https://cowork.gigab2b.ru/chat"
+USER_ID = "00000000-0000-0000-0000-000000000000"
+
+
+class DirectMailAdapter(ISupportMailAdapter):
+    """Повторяет AuthClient.send_email без Keycloak-конфига."""
+
+    def __init__(self, *, auth_service_url, token):
+        self._url = auth_service_url.rstrip("/") + "/api/v1/internal/emails/send"
+        self._token = token
+
+    async def send_email(self, *, to, subject, body, reply_to=None, sender_display_name=None):
+        payload = {"to": to, "subject": subject, "body": body}
+        if reply_to:
+            payload["reply_to"] = reply_to
+        if sender_display_name:
+            payload["sender_display_name"] = sender_display_name
+        async with httpx.AsyncClient(timeout=30, trust_env=False) as http:
+            response = await http.post(
+                self._url, json=payload, headers={"authorization": f"Bearer {self._token}"}
+            )
+        if response.status_code != 202:
+            print(f"{RED}[FAIL]{RESET} status={response.status_code} {response.text}")
+            sys.exit(1)
+        return response.json().get("job_id", "")
+
+
+async def main():
+    if not RECIPIENT or "@" not in RECIPIENT:
+        print(f"{RED}ERROR:{RESET} заполните поле «Кому отправить тест»")
+        sys.exit(2)
+
+    settings = get_settings()
+    token = settings.auth_service_internal_access_token_secret.strip()
+    if not token:
+        print(f"{RED}ERROR:{RESET} YGGDRASIL_AUTH_SERVICE_INTERNAL_ACCESS_TOKEN_SECRET пуст")
+        sys.exit(2)
+
+    print(f"support_email стенда:  {settings.support_email}")
+    print(f"получатель теста:  {RECIPIENT}")
+    if settings.support_email == RECIPIENT:
+        print(f"{YELLOW}[WARN]{RESET} адреса совпали — письмо уйдёт в боевую поддержку")
+    print("")
+
+    service = SupportFeedbackService(
+        mail=DirectMailAdapter(auth_service_url=settings.auth_service_url, token=token),
+        support_email=RECIPIENT,
+    )
+    user = AuthenticatedUser(
+        id=USER_ID, name=USER_NAME, email=USER_EMAIL, role="member", status="active"
+    )
+
+    print("тело письма:")
+    print(service._build_body(user=user, message=MESSAGE, page_url=PAGE_URL))
+    print("")
+
+    await service.send_feedback(
+        user=user, subject=SUBJECT, message=MESSAGE, page_url=PAGE_URL
+    )
+    print(f"{GREEN}[SENT]{RESET} письмо поставлено в очередь доставки")
+    print(f"{YELLOW}[INFO]{RESET} факт отправки — в логах heimdall-worker: outgoing_email_send_ok / outgoing_email_send_failed")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "dev-onboarding-manual",
+    title: "25. Онбординг разработчиков вручную",
+    pods: [POD_HEIMDALL],
+    hint: "То же, что делает CronJob, но не требует модуля dev_onboarding в образе. Список и ключ берутся из Vault, cowork/heimdall/api. Пароль ставится только при создании пользователя.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email разработчиков", placeholder: "ivanov@gigab2b.ru\npetrov@gigab2b.ru" },
+      { id: "key", type: "password", label: "AUTH_DEV_ONBOARDING_KEY", placeholder: "значение из Vault" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, hashlib, hmac, string, sys, httpx
+from sqlalchemy import text
+try:
+    from auth_sdk import (
+        AuthClient,
+        KeycloakProviderConfig,
+        ProviderUnavailableError,
+        ProviderUserAlreadyExistsError,
+    )
+except ModuleNotFoundError:
+    from heimdall_auth import (
+        AuthClient,
+        KeycloakProviderConfig,
+        ProviderUnavailableError,
+        ProviderUserAlreadyExistsError,
+    )
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+KEY = ${secretPy(v.key)}
+ROLE_NAME = "Администратор"
+GRANTS = (
+    ("admin", "global", "admin.admin"),
+    ("admin.users", "global", "admin.users.admin"),
+    ("admin.connectors", "global", "admin.connectors.admin"),
+    ("audit", "global", "audit.admin"),
+)
+
+LOWER, UPPER, DIGITS = string.ascii_lowercase, string.ascii_uppercase, string.digits
+SPECIAL = "!@#$%^&*-_=+"
+ALPHABET = LOWER + UPPER + DIGITS + SPECIAL
+CLASSES = (LOWER, UPPER, DIGITS, SPECIAL)
+LENGTH = 24
+
+def derive(email, length=LENGTH):
+    normalized = email.strip().lower()
+    stream = bytearray()
+    counter = 0
+    while len(stream) < length:
+        block = hmac.new(
+            KEY.encode("utf-8"),
+            f"{normalized}:{counter}".encode("utf-8"),
+            hashlib.sha256,
+        ).digest()
+        stream.extend(block)
+        counter += 1
+    material = bytes(stream[:length])
+    chars = [ALPHABET[byte % len(ALPHABET)] for byte in material]
+    for offset, alphabet in enumerate(CLASSES):
+        position = length - 1 - offset
+        chars[position] = alphabet[material[position] % len(alphabet)]
+    return "".join(chars)
+
+def selfcheck():
+    try:
+        from auth_service.features.dev_onboarding.password import derive_password
+    except ModuleNotFoundError:
+        return f"{YELLOW}модуля dev_onboarding в образе нет, работает встроенная деривация{RESET}"
+    for probe in ("a@b.ru", "ivanov@gigab2b.ru", "Very.Long.Address@sberdevices.ru"):
+        if derive(probe) != derive_password(key=KEY, email=probe):
+            print(f"{RED}ERROR:{RESET} встроенная деривация разошлась с модулем в образе")
+            sys.exit(2)
+    return f"{GREEN}сверено с модулем в образе, пароли совпадают{RESET}"
+
+async def find_user(client, email):
+    try:
+        return await client.find_user_by_email(email=email)
+    except ProviderUnavailableError as error:
+        print(f"{RED}ERROR:{RESET} auth provider недоступен: {error!r}")
+        sys.exit(69)
+
+async def ensure_user(client, email):
+    existing = await find_user(client, email)
+    if existing is not None:
+        return existing, False
+    try:
+        user = await client.create_provider_user(
+            email=email, first_name="Developer", last_name=email.split("@", 1)[0]
+        )
+    except ProviderUserAlreadyExistsError:
+        racing = await find_user(client, email)
+        if racing is None:
+            print(f"{RED}ERROR:{RESET} {email}: провайдер говорит, что пользователь есть, но не отдаёт его")
+            sys.exit(9)
+        return racing, False
+    try:
+        await client.reset_user_password(user_id=user.id, new_password=derive(email))
+    except BaseException:
+        await client.delete_provider_user(user_id=user.id)
+        print(f"{RED}ERROR:{RESET} {email}: пароль не выставился, пользователь удалён, повторите прогон")
+        raise
+    return user, True
+
+async def main():
+    if not EMAILS:
+        print(f"{RED}ERROR:{RESET} заполните список email")
+        sys.exit(2)
+    if any("@" not in email for email in EMAILS):
+        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+        sys.exit(2)
+    if not KEY:
+        print(f"{RED}ERROR:{RESET} заполните AUTH_DEV_ONBOARDING_KEY")
+        sys.exit(2)
+
+    print(selfcheck())
+    print("")
+
+    settings = get_settings()
+    db = Database(settings)
+    created = roles = 0
+    try:
+        async with httpx.AsyncClient() as http, db.session() as session:
+            role_id = (
+                await session.execute(
+                    text("SELECT role_id FROM global_roles WHERE name = :name"),
+                    {"name": ROLE_NAME},
+                )
+            ).scalar_one_or_none()
+            if role_id is None:
+                print(f"{RED}ERROR:{RESET} роль {ROLE_NAME!r} не заведена на стенде — прогоните карточку 18")
+                sys.exit(4)
+
+            client = AuthClient(
+                config=KeycloakProviderConfig(
+                    issuer_url=settings.provider_issuer_url,
+                    realm=settings.provider_realm,
+                    client_id=settings.provider_client_id,
+                    client_secret=settings.provider_client_secret,
+                ),
+                http_client=http,
+            )
+            for email in EMAILS:
+                user, is_new = await ensure_user(client, email)
+                assigned = (
+                    await session.execute(
+                        text(
+                            "INSERT INTO user_global_roles (user_id, role_id, source, assigned_by) "
+                            "VALUES (:u, :r, 'bootstrap', 'dev-onboarding') ON CONFLICT DO NOTHING"
+                        ),
+                        {"u": user.id, "r": role_id},
+                    )
+                ).rowcount
+                for namespace, resource_id, grant_role in GRANTS:
+                    await session.execute(
+                        text(
+                            "INSERT INTO access_grants (user_id, namespace, resource_id, role_id) "
+                            "VALUES (:u, :n, :res, :role) "
+                            "ON CONFLICT ON CONSTRAINT uq_access_grants_user_namespace_resource "
+                            "DO UPDATE SET role_id = EXCLUDED.role_id"
+                        ),
+                        {"u": user.id, "n": namespace, "res": resource_id, "role": grant_role},
+                    )
+                state = f"{GREEN}создан{RESET}" if is_new else "уже был"
+                role_state = "роль выдана" if assigned else "роль была"
+                print(f"{state}\t{role_state}\tгрантов: {len(GRANTS)}\t{email}")
+                if is_new:
+                    print(f"    пароль: {derive(email)}")
+                created += int(is_new)
+                roles += int(bool(assigned))
+            await session.commit()
+    finally:
+        await db.close()
+
+    print("")
+    print(f"итого: обработано={len(EMAILS)} заведено={created} ролей выдано={roles}")
+    print("пароли показаны только для заведённых: у остальных остался их прежний")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "revoke-invites",
+    title: "26. Отозвать приглашение",
+    pods: [POD_HEIMDALL],
+    danger: true,
+    hint: "Удаляет invite-токен по email, включая просроченный — админка такой отозвать не умеет и отдаёт 404. Ссылка из письма перестаёт работать, вернуть её нельзя, нужно приглашать заново. Принятые приглашения не трогает: доступы снимаются карточками 6 и 21. Событие в аудит не пишется, удаление идёт мимо сервисного слоя.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys
+from datetime import UTC, datetime
+from sqlalchemy import delete, select
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import InviteTokenModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import InviteTokenModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import InviteTokenModel
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = [email.strip().lower() for email in ${emailsPy(v.emails)}]
+
+if not EMAILS:
+    print(f"{RED}ERROR:{RESET} заполните поле email")
+    sys.exit(2)
+if any("@" not in email for email in EMAILS):
+    print(f"{RED}ERROR:{RESET} некорректный список email:", EMAILS)
+    sys.exit(2)
+
+def as_utc(moment):
+    return moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment
+
+async def main():
+    settings = get_settings()
+    db = Database(settings)
+    revoked = skipped = missing = failed = 0
+    try:
+        async with db.session() as session:
+            for email in EMAILS:
+                result = await session.execute(
+                    select(InviteTokenModel).where(InviteTokenModel.email_normalized == email)
+                )
+                tokens = list(result.scalars())
+                if not tokens:
+                    print(f"{YELLOW}[SKIP]{RESET} {email}: приглашения нет")
+                    missing += 1
+                    continue
+                revocable = [token for token in tokens if token.status != "accepted"]
+                if not revocable:
+                    print(f"{YELLOW}[SKIP]{RESET} {email}: приглашение уже принято, отзывать нечего")
+                    skipped += 1
+                    continue
+                for token in revocable:
+                    if token.status == "accepting":
+                        print(f"{YELLOW}[SKIP]{RESET} {email}: регистрация идёт прямо сейчас, строку не трогаю")
+                        skipped += 1
+                        continue
+                    expires_at = as_utc(token.expires_at)
+                    outcome = await session.execute(
+                        delete(InviteTokenModel).where(InviteTokenModel.id == token.id)
+                    )
+                    if outcome.rowcount != 1:
+                        print(f"{RED}[FAIL]{RESET} {email}: строка исчезла до удаления")
+                        failed += 1
+                        continue
+                    state = "было просрочено с" if expires_at <= datetime.now(UTC) else "действовало до"
+                    print(f"{GREEN}[OK]{RESET} {email}: приглашение отозвано, {state} {expires_at:%d.%m.%Y %H:%M} UTC")
+                    revoked += 1
+            await session.commit()
+    finally:
+        await db.close()
+
+    print("")
+    print(f"итого: отозвано={revoked} пропущено={skipped} не найдено={missing} ошибок={failed}")
+    if failed:
+        sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+];
+
+function fieldMarkup(cmdId, field) {
+  const fieldId = `${cmdId}__${field.id}`;
+  if (field.type === "emails") {
+    return `<div class="field" data-field-id="${field.id}">
+      <label for="${fieldId}">${field.label}</label>
+      <textarea id="${fieldId}" placeholder="${field.placeholder || ""}" autocomplete="off"></textarea>
+    </div>`;
+  }
+  if (field.type === "email") {
+    return `<div class="field" data-field-id="${field.id}">
+      <label for="${fieldId}">${field.label}</label>
+      <input id="${fieldId}" type="email" placeholder="${field.placeholder || ""}" autocomplete="off" />
+    </div>`;
+  }
+  if (field.type === "password") {
+    return `<div class="field" data-field-id="${field.id}">
+      <label for="${fieldId}">${field.label}</label>
+      <input id="${fieldId}" type="text" placeholder="${field.placeholder || ""}" autocomplete="off" />
+    </div>`;
+  }
+  if (field.type === "text") {
+    return `<div class="field" data-field-id="${field.id}">
+      <label for="${fieldId}">${field.label}</label>
+      <input id="${fieldId}" type="text" placeholder="${field.placeholder || ""}" autocomplete="off" />
+    </div>`;
+  }
+  if (field.type === "select") {
+    const opts = field.options.map((o) => `<option value="${o.value}">${o.label}</option>`).join("");
+    return `<div class="field" data-field-id="${field.id}">
+      <label for="${fieldId}">${field.label}</label>
+      <select id="${fieldId}">${opts}</select>
+    </div>`;
+  }
+  return "";
+}
+
+function collectValues(details, cmd) {
+  const values = {};
+  for (const field of cmd.fields) {
+    const el = details.querySelector(`[data-field-id="${field.id}"] [id]`);
+    const raw = el.value;
+    if (field.type === "emails") values[field.id] = parseEmailList(raw);
+    else if (field.type === "email") values[field.id] = raw;
+    else if (field.type === "password") values[field.id] = raw;
+    else values[field.id] = raw;
+  }
+  return values;
+}
+
+function buildItem(cmd) {
+  const details = document.createElement("details");
+  details.className = "item";
+  details.dataset.id = cmd.id;
+  details.dataset.searchText = [cmd.title, cmd.hint, ...cmd.pods].join(" ").toLowerCase();
+
+  const podTags = cmd.pods.map((p) => `<span class="tag pod-${p}">${p}</span>`).join("");
+  const dangerTag = cmd.danger ? `<span class="tag danger">опасно</span>` : "";
+
+  details.innerHTML = `
+    <summary class="item-head">
+      <span class="item-title">${cmd.title}</span>
+      ${podTags}
+      ${dangerTag}
+      <span class="chevron">&#9662;</span>
+    </summary>
+    <div class="item-body">
+      <p class="hint">${cmd.hint}</p>
+      <div class="fields">${cmd.fields.map((f) => fieldMarkup(cmd.id, f)).join("")}</div>
+      <div class="output-wrap">
+        <button type="button" class="copy-btn" title="Скопировать" aria-label="Скопировать">
+          <svg class="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </button>
+        <pre class="output"></pre>
+      </div>
+    </div>
+  `;
+
+  const output = details.querySelector(".output");
+  const copyBtn = details.querySelector(".copy-btn");
+
+  function update() {
+    const values = collectValues(details, cmd);
+    output.textContent = cmd.render(values);
+  }
+
+  details.querySelectorAll(".fields [id]").forEach((el) => {
+    el.addEventListener("input", update);
+    el.addEventListener("change", update);
+  });
+
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(output.textContent);
+      copyBtn.classList.add("copied");
+      setTimeout(() => { copyBtn.classList.remove("copied"); }, 1200);
+    } catch (e) {
+      alert("Не удалось скопировать: " + e);
+    }
+  });
+
+  update();
+  return details;
+}
+
+const listEl = document.getElementById("list");
+const emptyState = document.getElementById("empty-state");
+COMMANDS.forEach((cmd) => listEl.appendChild(buildItem(cmd)));
+
+document.getElementById("version").textContent = HELPER_VERSION;
+
+const searchInput = document.getElementById("search");
+function applySearch() {
+  const query = searchInput.value.trim().toLowerCase();
+  let visibleCount = 0;
+  listEl.querySelectorAll("details.item").forEach((details) => {
+    const match = !query || details.dataset.searchText.includes(query);
+    details.hidden = !match;
+    if (match) visibleCount += 1;
+  });
+  emptyState.style.display = visibleCount === 0 ? "block" : "none";
+}
+searchInput.addEventListener("input", applySearch);
+</script>
+</body>
+</html>
