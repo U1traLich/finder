@@ -49,6 +49,24 @@ def print_action(message, end="\n"):
 def colorize_yellow(text):
     return f"{YELLOW}{text}{RESET}" if sys.stdout.isatty() else text
 
+# --- Логотип GigaFinder (ASCII-арт) ---
+def print_logo():
+    logo_lines = [
+        "  ██████╗ ██╗ ██████╗  █████╗ ███████╗██╗███╗   ██╗██████╗ ███████╗██████╗ ",
+        "██╔════╝ ██║██╔════╝ ██╔══██╗██╔════╝██║████╗  ██║██╔══██╗██╔════╝██╔══██╗",
+        "██║  ███╗██║██║  ███╗███████║█████╗  ██║██╔██╗ ██║██║  ██║█████╗  ██████╔╝",
+        "██║   ██║██║██║   ██║██╔══██║██╔══╝  ██║██║╚██╗██║██║  ██║██╔══╝  ██╔══██╗",
+        "╚██████╔╝██║╚██████╔╝██║  ██║██║     ██║██║ ╚████║██████╔╝███████╗██║  ██║",
+        " ╚═════╝ ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝",
+    ]
+    max_len = max(len(line) for line in logo_lines)
+    border = "=" * (max_len + 4)   # по два пробела с каждой стороны
+    print(border)
+    for line in logo_lines:
+        padded = line + " " * (max_len - len(line))
+        print(f"|| {padded}||")
+    print(border)
+
 # --- Утилиты L2 ---
 def get_repo_root(start):
     if REPO_PATH.exists() and (REPO_PATH / ".git").exists():
@@ -246,6 +264,7 @@ def open_faq_agent():
     webbrowser.open(FAQ_AGENT_URL)
 
 def main():
+    print_logo()   # <-- логотип выводится первым
     script_dir = Path(__file__).parent.resolve()
     try:
         repo_root = get_repo_root(script_dir)

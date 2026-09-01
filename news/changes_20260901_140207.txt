@@ -1,0 +1,25 @@
+Изменения от 2026-09-01 14:02:07.102808
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0048/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0048/config.yaml
+index 90e690ba4..379afdf24 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0048/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0048/config.yaml
+@@ -20,6 +20,6 @@ llm_api_base_url: "https://api.giga.chat/mainosa-beta/v1"
+ autosync: true
+ meta:
+   inn: '7708503727'
+-  expiry_date: '2026-09-03'
++  expiry_date: '2026-09-17'
+   id: dbc54550-38c9-487b-9741-c31aa8e30a4b
+   status: grace
+diff --git a/dev/cowork/stands/cowork-dev-qa-01/config.yaml b/dev/cowork/stands/cowork-dev-qa-01/config.yaml
+index 72fd2642d..8c7a1b98a 100644
+--- a/dev/cowork/stands/cowork-dev-qa-01/config.yaml
++++ b/dev/cowork/stands/cowork-dev-qa-01/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-qa-01"
+-cowork_revision: "master"
++cowork_revision: "chore/SDBPROD-319/move-agent-skills"
+ argocd_shard: "1"
+ stand_node_label: "cowork-dev-02"
+ cowork_s3_label: "cowork-dev"
