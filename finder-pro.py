@@ -21,26 +21,33 @@ ZONES = [
 ]
 CONFIG = "config.yaml"
 
-# --- Функции цветного вывода (переиспользованы из L1) ---
+# --- Функции цветного вывода (с разделителем для всех кроме INFO) ---
+def print_divider():
+    print("\n" + "=" * 50)
+
 def print_info(message):
+    # Без разделителя
     if sys.stdout.isatty():
         print(f"{WHITE}[{GREEN}INFO{WHITE}]{RESET} {message}")
     else:
         print(f"[INFO] {message}")
 
 def print_warn(message):
+    print_divider()
     if sys.stdout.isatty():
         print(f"{WHITE}[{YELLOW}WARN{WHITE}]{RESET} {message}")
     else:
         print(f"[WARN] {message}")
 
 def print_error(message):
+    print_divider()
     if sys.stdout.isatty():
         print(f"{WHITE}[{RED}ERROR{WHITE}]{RESET} {message}")
     else:
         print(f"[ERROR] {message}")
 
 def print_action(message, end="\n"):
+    print_divider()
     if sys.stdout.isatty():
         print(f"{WHITE}[{CYAN}ACTION{WHITE}]{RESET} {message}", end=end, flush=True)
     else:
@@ -113,8 +120,18 @@ def pull_repo(repo_root, news_dir):
         print_error(f"stderr:\n{fetch_result.stderr}")
         sys.exit(1)
 
+    current_branch = subprocess.run(
+        ["git", "symbolic-ref", "--short", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True
+    ).stdout.strip()
+    if not current_branch:
+        print_error("Не удалось определить текущую ветку.")
+        sys.exit(1)
+
     pull_result = subprocess.run(
-        ["git", "pull", "origin", "master"],
+        ["git", "pull", "origin", current_branch],
         cwd=repo_root,
         capture_output=True,
         text=True
