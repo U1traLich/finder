@@ -1,0 +1,38 @@
+Изменения от 2026-09-01 12:33:37.456981
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0332/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0332/config.yaml
+index 5c72f3b19..67d3f6a3a 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0332/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0332/config.yaml
+@@ -16,6 +16,6 @@ trial: false
+ admin_email: gerkennv@gmail.com
+ meta:
+   status: grace
+-  expiry_date: '2026-09-02'
++  expiry_date: '2026-09-23'
+   inn: '6155010796'
+   id: 98e3c629-1f3c-41bc-abf3-1d2044900077
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0061/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0061/config.yaml
+index d2004466e..da4c34db7 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0061/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0061/config.yaml
+@@ -23,6 +23,6 @@ trial: false
+ bootstrap: true
+ meta:
+   inn: '6166048181'
+-  expiry_date: '2026-08-31'
++  expiry_date: '2026-09-30'
+   id: 9778ed24-ae68-48a9-8eb6-b312450d92b7
+-  status: expired
++  status: grace
+diff --git a/dev/cowork/stands/cowork-dev-qa-02/config.yaml b/dev/cowork/stands/cowork-dev-qa-02/config.yaml
+index 39e31349b..54e19b308 100644
+--- a/dev/cowork/stands/cowork-dev-qa-02/config.yaml
++++ b/dev/cowork/stands/cowork-dev-qa-02/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-qa-02"
+-cowork_revision: "fix/SDBPROD-1326/hide-empty-sessions-from-history"
++cowork_revision: "feature/SDBPROD-907.1260/preview-office-formats"
+ argocd_shard: "1"
+ stand_node_label: "cowork-dev-03"
+ cowork_s3_label: "cowork-dev"

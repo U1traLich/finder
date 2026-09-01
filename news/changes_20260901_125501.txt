@@ -1,0 +1,50 @@
+Изменения от 2026-09-01 12:55:01.026914
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0473/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0473/config.yaml
+index ebd4cd980..d869b98b9 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0473/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0473/config.yaml
+@@ -3,11 +3,19 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0473
+ cowork_s3_label: cowork-st02-0473
+-cowork_subdomain: "cowork-st02-0473"
++cowork_subdomain: "interlabs"
+ cowork_revision: "release/26.08.1"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: arubel@interlabs.ru
++bootstrap: true
++trial: true
++meta:
++  id: 51c383fb-f55f-4c49-ac09-4344b89222d0
++  status: trial
++  expiry_date: '2026-09-08'
++  inn: '7717530082'
+diff --git a/dev/cowork/stands/cowork-dev-qa-01/config.yaml b/dev/cowork/stands/cowork-dev-qa-01/config.yaml
+index 30274076c..72fd2642d 100644
+--- a/dev/cowork/stands/cowork-dev-qa-01/config.yaml
++++ b/dev/cowork/stands/cowork-dev-qa-01/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-qa-01"
+-cowork_revision: "fix/SSBPROD-1484/correct-skills-validation"
++cowork_revision: "master"
+ argocd_shard: "1"
+ stand_node_label: "cowork-dev-02"
+ cowork_s3_label: "cowork-dev"
+diff --git a/dev/cowork/stands/cowork-dev-qa-03/config.yaml b/dev/cowork/stands/cowork-dev-qa-03/config.yaml
+index f684732e3..ed0a86d03 100644
+--- a/dev/cowork/stands/cowork-dev-qa-03/config.yaml
++++ b/dev/cowork/stands/cowork-dev-qa-03/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-qa-03"
+-cowork_revision: "bugfix/SDBPROD-1482/fix-ouathlogin"
++cowork_revision: "feature/SDBPROD-1446/fix-patch-auth-change"
+ argocd_shard: "1"
+ stand_node_label: "cowork-dev-03"
+ cowork_s3_label: "cowork-dev"

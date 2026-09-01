@@ -1,0 +1,61 @@
+Изменения от 2026-09-01 13:06:32.930883
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0318/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0318/config.yaml
+index e610624ec..dee04ef04 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0318/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0318/config.yaml
+@@ -17,5 +17,5 @@ admin_email: g.evstafev@digital.gov.ru
+ meta:
+   id: 92264079-cc48-4ecf-8fff-f2574fcaa044
+   inn: '7710474375'
+-  expiry_date: '2026-09-01'
++  expiry_date: '2027-04-30'
+   status: grace
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0473/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0473/config.yaml
+index d869b98b9..05059e111 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0473/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0473/config.yaml
+@@ -17,5 +17,5 @@ trial: true
+ meta:
+   id: 51c383fb-f55f-4c49-ac09-4344b89222d0
+   status: trial
+-  expiry_date: '2026-09-08'
++  expiry_date: '2026-09-15'
+   inn: '7717530082'
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0622/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0622/config.yaml
+index dba2f1193..1a3683234 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0622/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0622/config.yaml
+@@ -21,6 +21,6 @@ bootstrap: true
+ occupied: true
+ meta:
+   inn: '7707083893'
+-  expiry_date: '2026-08-31'
++  expiry_date: '2027-04-29'
+   id: c12034cf-e2c6-4c95-b140-df4f2922e040
+-  status: expired
++  status: grace
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0750/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0750/config.yaml
+index e931e9c8e..5cda5e216 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0750/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0750/config.yaml
+@@ -23,6 +23,6 @@ trial: false
+ bootstrap: true
+ meta:
+   inn: '7706810730'
+-  expiry_date: '2026-08-31'
++  expiry_date: '2026-09-07'
+   id: 9a3254ad-4604-4232-a59b-7b38e6bddc5e
+-  status: expired
++  status: grace
+diff --git a/dev/cowork/stands/cowork-dev-02/config.yaml b/dev/cowork/stands/cowork-dev-02/config.yaml
+index 047873d46..841d5d30b 100644
+--- a/dev/cowork/stands/cowork-dev-02/config.yaml
++++ b/dev/cowork/stands/cowork-dev-02/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-02"
+-cowork_revision: "feature/SDBPROD-714/skills-extension"
++cowork_revision: "feature/SDBPROD-1511/soft-delete-extensions"
+ argocd_shard: "1"
+ stand_node_label: "cowork-dev-02"
+ cowork_s3_label: "cowork-dev"
