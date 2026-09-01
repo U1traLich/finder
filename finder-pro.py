@@ -304,7 +304,7 @@ def main():
 
     while True:
         print("\n" + "=" * 50)
-        print("Введите критерии поиска (можно оставить пустым, но хотя бы одно поле):")
+        print("Введите критерии поиска (хотя бы одно поле):")
         subdomain = input("  cowork_subdomain: ").strip()
         email = input("  email: ").strip()
         inn = input("  ИНН: ").strip()
