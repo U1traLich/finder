@@ -121,5 +121,3 @@ text
 ## Автор
 Илья Марковский
 i.markovskiy@gigab2b.ru
-
-text
