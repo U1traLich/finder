@@ -18,6 +18,7 @@ FAQ_AGENT_URL = "https://cowork.gigab2b.ru/workspaces/c63c8b9f-bdf0-4805-a314-b8
 ZONES = [
     {"path": "cce-prod/cowork/clusters/cce-prod-tb01", "label": "cce-prod-tb01", "url": "https://argocd-tb01.cowork.ru/applications/cowork/{folder}?resource="},
     {"path": "cce-prod/cowork/clusters/cce-prod-st02", "label": "cce-prod-st02", "url": "https://argocd-st02.cowork.ru/applications/cowork/{folder}?resource="},
+    {"path": "cce-prod/cowork/clusters/cce-prod-tb04", "label": "cce-prod-tb04", "url": "https://argocd-tb04.cowork.ru/applications/cowork/{folder}?resource="},
 ]
 CONFIG = "config.yaml"
 
@@ -26,7 +27,6 @@ def print_divider():
     print("\n" + "=" * 50)
 
 def print_info(message):
-    # Без разделителя
     if sys.stdout.isatty():
         print(f"{WHITE}[{GREEN}INFO{WHITE}]{RESET} {message}")
     else:
@@ -67,7 +67,7 @@ def print_logo():
         " ╚═════╝ ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝",
     ]
     max_len = max(len(line) for line in logo_lines)
-    border = "=" * (max_len + 4)   # по два пробела с каждой стороны
+    border = "=" * (max_len + 4)
     print(border)
     for line in logo_lines:
         padded = line + " " * (max_len - len(line))
@@ -255,12 +255,10 @@ def open_links(selected, script_dir):
     helper = script_dir / "admin-helper-new.html"
     if helper.exists():
         webbrowser.open(str(helper))
-        print_info("Файл admin-helper-new.html открыт.")
     else:
         print_warn("admin-helper-new.html не найден.")
     url = selected['url_template'].format(folder=selected['folder'])
     webbrowser.open(url)
-    print_info(f"ArgoCD открыт для стенда: {selected['folder']}")
 
 def open_tenant(selected):
     subdomain = selected.get('cowork_subdomain')
@@ -268,20 +266,17 @@ def open_tenant(selected):
         print_warn("Не указан cowork_subdomain, невозможно открыть тенант.")
         return
     url = f"https://{subdomain}.cowork.ru"
-    print_info(f"Вход на тенант: {url}")
     webbrowser.open(url)
 
 def open_tenant_console():
     url = "https://tenant-console.cowork.ru/"
-    print_info(f"Открытие консоли тенантов: {url}")
     webbrowser.open(url)
 
 def open_faq_agent():
-    print_info("Запуск FAQ-агента...")
     webbrowser.open(FAQ_AGENT_URL)
 
 def main():
-    print_logo()   # <-- логотип выводится первым
+    print_logo()
     script_dir = Path(__file__).parent.resolve()
     try:
         repo_root = get_repo_root(script_dir)
@@ -304,7 +299,7 @@ def main():
 
     while True:
         print("\n" + "=" * 50)
-        print("Введите критерии поиска (хотя бы одно поле):")
+        print("Введите критерии поиска (можно оставить пустым, но хотя бы одно поле):")
         subdomain = input("  cowork_subdomain: ").strip()
         email = input("  email: ").strip()
         inn = input("  ИНН: ").strip()
@@ -339,9 +334,6 @@ def main():
         selected = select_stand(results)
         if selected is None:
             continue
-
-        # Визуальный разделитель перед меню действий
-        print("\n" + "=" * 50)
 
         while True:
             print_action("Выбрать действие")
