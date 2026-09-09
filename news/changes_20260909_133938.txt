@@ -1,0 +1,53 @@
+Изменения от 2026-09-09 13:39:38.065851
+========================================
+diff --git a/dev/infra/kubeuser/kubeuser-argocd.yaml b/dev/infra/kubeuser/kubeuser-argocd.yaml
+new file mode 100755
+index 000000000..89c4f137c
+--- /dev/null
++++ b/dev/infra/kubeuser/kubeuser-argocd.yaml
+@@ -0,0 +1,45 @@
++apiVersion: argoproj.io/v1alpha1
++kind: ApplicationSet
++metadata:
++  name: kubeuser
++  namespace: kubeuser
++spec:
++  goTemplate: true
++  goTemplateOptions: ["missingkey=error"]
++  generators:
++  - clusters:
++      selector:
++        matchLabels:
++          environment: "dev"
++          argocd_shard: "0"
++      values:
++        base_domain: '{{index .metadata.annotations "base_domain"}}'
++        env: '{{index .metadata.labels "environment"}}'
++  template:
++    metadata:
++      name: "kubeuser"
++    spec:
++      project: "infra"
++      sources:
++        - chart: kubeuser
++          repoURL: 'https://openkube-hub.github.io/KubeUser'
++          targetRevision: 0.1.0
++          helm:
++            passCredentials: true
++            releaseName: kubeuser
++            valueFiles:
++              - $helm/{{.values.env}}/kubeuser/kubeuser-values.yaml
++        - repoURL: 'https://git.sberdevices.ru/gigabb/infra/cowork/helm_values_infra.git'
++          targetRevision: master
++          ref: helm
++      destination:
++        server: "https://kubernetes.default.svc"
++        namespace: kubeuser
++      syncPolicy:
++        automated: null
++        syncOptions:
++        - RespectIgnoreDifferences=true
++        - PruneLast=true
++        - ServerSideApply=true
++      revisionHistoryLimit: 3
++

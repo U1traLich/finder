@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 import subprocess, re, sys, webbrowser
+import threading
+import itertools
+import time
 from pathlib import Path
 from datetime import datetime
 
@@ -56,6 +59,53 @@ def print_action(message, end="\n"):
 def colorize_yellow(text):
     return f"{YELLOW}{text}{RESET}" if sys.stdout.isatty() else text
 
+# --- Анимация спиннера ---
+def animate_spinner(stop_event):
+    spinner = itertools.cycle(['\\', '|', '/', '-'])
+    while not stop_event.is_set():
+        sys.stdout.write(next(spinner) + '\b')
+        sys.stdout.flush()
+        time.sleep(0.1)
+
+# --- Ввод с таймаутом ---
+def input_with_timeout(prompt, timeout_seconds):
+    """Ожидает ввод строки с таймаутом. Возвращает строку или None при истечении времени."""
+    print(prompt, end='', flush=True)
+    if sys.platform == "win32":
+        import msvcrt
+        chars = []
+        start = time.time()
+        while True:
+            if time.time() - start > timeout_seconds:
+                print()
+                return None
+            if msvcrt.kbhit():
+                ch = msvcrt.getwche()
+                if ch in ('\r', '\n'):
+                    print()
+                    break
+                elif ch == '\b':  # backspace
+                    if chars:
+                        chars.pop()
+                        sys.stdout.write('\b \b')
+                        sys.stdout.flush()
+                else:
+                    chars.append(ch)
+            time.sleep(0.05)
+        return ''.join(chars).strip()
+    else:
+        import select
+        ready, _, _ = select.select([sys.stdin], [], [], timeout_seconds)
+        if ready:
+            line = sys.stdin.readline()
+            if line:
+                return line.strip()
+            else:
+                return None  # EOF
+        else:
+            print()
+            return None
+
 # --- Логотип GigaFinder (ASCII-арт) ---
 def print_logo():
     logo_lines = [
@@ -89,109 +139,127 @@ def get_repo_root(start):
     raise FileNotFoundError("Не найден .git")
 
 def pull_repo(repo_root, news_dir):
-    print_info("Обновление репозитория...")
-    remote_url = subprocess.run(
-        ["git", "remote", "get-url", "origin"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True
-    ).stdout.strip()
-    if remote_url:
-        print_info(f"Удалённый репозиторий: {remote_url}")
+    # Запускаем анимацию спиннера
+    stop_event = threading.Event()
+    spinner_thread = threading.Thread(target=animate_spinner, args=(stop_event,), daemon=True)
+    spinner_thread.start()
 
-    head_before = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True
-    ).stdout.strip()
+    # Выводим сообщение без перевода строки, с анимацией вместо точек
+    if sys.stdout.isatty():
+        print(f"{WHITE}[{GREEN}INFO{WHITE}]{RESET} Обновление репозитория ", end='', flush=True)
+    else:
+        print("[INFO] Обновление репозитория...", end='', flush=True)
 
-    fetch_result = subprocess.run(
-        ["git", "fetch", "origin"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True
-    )
-    if fetch_result.returncode != 0:
-        print_error("Не удалось выполнить git fetch. Возможные причины:")
-        print_error("  - Нет доступа к удалённому репозиторию")
-        print_error("  - Истекли учётные данные (токен/пароль)")
-        print_error("  - Неверный URL (проверьте git remote -v)")
-        print_error(f"stderr:\n{fetch_result.stderr}")
-        sys.exit(1)
-
-    current_branch = subprocess.run(
-        ["git", "symbolic-ref", "--short", "HEAD"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True
-    ).stdout.strip()
-    if not current_branch:
-        print_error("Не удалось определить текущую ветку.")
-        sys.exit(1)
-
-    pull_result = subprocess.run(
-        ["git", "pull", "origin", current_branch],
-        cwd=repo_root,
-        capture_output=True,
-        text=True
-    )
-    if pull_result.returncode != 0:
-        print_error("git pull завершился с ошибкой:")
-        print_error(pull_result.stderr)
-        sys.exit(1)
-
-    head_after = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True
-    ).stdout.strip()
-
-    if head_before and head_after and head_before != head_after:
-        diff_stat = subprocess.run(
-            ["git", "diff", "--stat", head_before, head_after],
+    try:
+        remote_url = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
             cwd=repo_root,
             capture_output=True,
             text=True
-        ).stdout
-        diff_full = subprocess.run(
-            ["git", "diff", head_before, head_after],
+        ).stdout.strip()
+
+        head_before = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
             cwd=repo_root,
             capture_output=True,
             text=True
-        ).stdout
-        if diff_full:
-            news_dir.mkdir(parents=True, exist_ok=True)
-            fname = f"changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-            (news_dir / fname).write_text(f"Изменения от {datetime.now()}\n{'='*40}\n{diff_full}", encoding='utf-8')
-            print_info(f"Полные изменения сохранены в {news_dir / fname}")
-        if diff_stat:
-            files = subprocess.run(
-                ["git", "diff", "--name-only", head_before, head_after],
+        ).stdout.strip()
+
+        fetch_result = subprocess.run(
+            ["git", "fetch", "origin"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True
+        )
+        if fetch_result.returncode != 0:
+            raise RuntimeError(f"git fetch failed: {fetch_result.stderr}")
+
+        current_branch = subprocess.run(
+            ["git", "symbolic-ref", "--short", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True
+        ).stdout.strip()
+        if not current_branch:
+            raise RuntimeError("Не удалось определить текущую ветку.")
+
+        pull_result = subprocess.run(
+            ["git", "pull", "origin", current_branch],
+            cwd=repo_root,
+            capture_output=True,
+            text=True
+        )
+        if pull_result.returncode != 0:
+            raise RuntimeError(f"git pull failed: {pull_result.stderr}")
+
+        head_after = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True
+        ).stdout.strip()
+
+        # Останавливаем спиннер и завершаем строку
+        stop_event.set()
+        spinner_thread.join()
+        if sys.stdout.isatty():
+            print()  # перевод строки после спиннера
+
+        if remote_url:
+            print_info(f"Удалённый репозиторий: {remote_url}")
+
+        if head_before and head_after and head_before != head_after:
+            diff_stat = subprocess.run(
+                ["git", "diff", "--stat", head_before, head_after],
                 cwd=repo_root,
                 capture_output=True,
                 text=True
-            ).stdout.strip().split('\n')
-            print_info("Изменённые файлы (cowork_subdomain):")
-            for f in files:
-                if not f:
-                    continue
-                try:
-                    full_path = repo_root / f
-                    if full_path.exists():
-                        content = full_path.read_text(encoding='utf-8')
-                        m = re.search(r'cowork_subdomain:\s*"?([^"\n]+)"?', content)
-                        sub = m.group(1).strip() if m else "?"
-                    else:
+            ).stdout
+            diff_full = subprocess.run(
+                ["git", "diff", head_before, head_after],
+                cwd=repo_root,
+                capture_output=True,
+                text=True
+            ).stdout
+            if diff_full:
+                news_dir.mkdir(parents=True, exist_ok=True)
+                fname = f"changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                (news_dir / fname).write_text(f"Изменения от {datetime.now()}\n{'='*40}\n{diff_full}", encoding='utf-8')
+                print_info(f"Полные изменения сохранены в {news_dir / fname}")
+            if diff_stat:
+                files = subprocess.run(
+                    ["git", "diff", "--name-only", head_before, head_after],
+                    cwd=repo_root,
+                    capture_output=True,
+                    text=True
+                ).stdout.strip().split('\n')
+                print_info("Изменённые файлы (cowork_subdomain):")
+                for f in files:
+                    if not f:
+                        continue
+                    try:
+                        full_path = repo_root / f
+                        if full_path.exists():
+                            content = full_path.read_text(encoding='utf-8')
+                            m = re.search(r'cowork_subdomain:\s*"?([^"\n]+)"?', content)
+                            sub = m.group(1).strip() if m else "?"
+                        else:
+                            sub = "?"
+                    except:
                         sub = "?"
-                except:
-                    sub = "?"
-                print(f"  {f} ({colorize_yellow(sub)})")
+                    print(f"  {f} ({colorize_yellow(sub)})")
+            else:
+                print_warn("Изменения затянуты, но статистика пуста.")
         else:
-            print_warn("Изменения затянуты, но статистика пуста.")
-    else:
-        print_info("Новых изменений нет.")
+            print_info("Новых изменений нет.")
+
+    except Exception as e:
+        stop_event.set()
+        spinner_thread.join()
+        if sys.stdout.isatty():
+            print()  # завершаем строку
+        print_error(str(e))
+        sys.exit(1)
 
 def read_config(file_path):
     try:
@@ -346,6 +414,7 @@ def main():
         if selected is None:
             continue
 
+        # Меню действий, остаёмся в нём до выбора "0" или таймаута
         while True:
             print_action("Выбрать действие")
             print("  1. Открыть Admin Helper и ArgoCD")
@@ -354,26 +423,24 @@ def main():
             print("  4. Запустить FAQ-агента")
             print("  5. Открыть конфигурацию стенда")
             print("  0. Вернуться к поиску")
-            print()  # добавлен перенос строки
-            action = input("Выберите действие (0-5): ").strip()
-
+            print()
+            action = input_with_timeout("Выберите действие (0-5): ", 60)
+            if action is None:
+                print_warn("Таймаут ожидания. Возврат к поиску.")
+                break
+            action = action.strip()
             if action == '0':
                 break
             elif action == '1':
                 open_links(selected, script_dir)
-                break
             elif action == '2':
                 open_tenant(selected)
-                break
             elif action == '3':
                 open_tenant_console()
-                break
             elif action == '4':
                 open_faq_agent()
-                break
             elif action == '5':
                 open_stand_config(selected)
-                break
             else:
                 print_warn("Неверный ввод, попробуйте снова.")
 
