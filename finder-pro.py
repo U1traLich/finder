@@ -126,6 +126,16 @@ def load_zones():
             with open(ZONES_CONFIG_FILE, "r", encoding="utf-8") as f:
                 zones = json.load(f)
                 if isinstance(zones, list):
+                    # Автокоррекция URL, если ранее был создан файл с багом
+                    corrected = False
+                    for zone in zones:
+                        if "url" in zone and "argocd-cce-prod-" in zone["url"]:
+                            cluster_name = zone["path"].split("/")[-1]
+                            code = cluster_name.rsplit("-", 1)[-1]
+                            zone["url"] = f"https://argocd-{code}.cowork.ru/applications/cowork/{{folder}}?resource="
+                            corrected = True
+                    if corrected:
+                        save_zones(zones)
                     return zones
         except Exception:
             pass
@@ -136,10 +146,12 @@ def save_zones(zones):
         json.dump(zones, f, ensure_ascii=False, indent=2)
 
 def make_zone_from_cluster(cluster_name):
+    # cluster_name: "cce-prod-st02"
+    code = cluster_name.rsplit("-", 1)[-1]  # st02, tb01, tb04
     return {
         "path": f"cce-prod/cowork/clusters/{cluster_name}",
         "label": cluster_name,
-        "url": f"https://argocd-{cluster_name}.cowork.ru/applications/cowork/{{folder}}?resource="
+        "url": f"https://argocd-{code}.cowork.ru/applications/cowork/{{folder}}?resource="
     }
 
 def get_remote_clusters(repo_root):
@@ -158,13 +170,11 @@ def check_and_update_zones(repo_root, zones):
     remote_clusters = get_remote_clusters(repo_root)
     updated = False
 
-    # Проверка доступности текущих кластеров
     for zone in zones:
         cluster_name = zone["path"].split("/")[-1]
         if cluster_name not in remote_clusters:
             print_error(f"Кластер {zone['label']} не доступен.")
 
-    # Поиск новых кластеров
     new_clusters = [c for c in remote_clusters if c not in [z["path"].split("/")[-1] for z in zones]]
     for cluster in new_clusters:
         print_warn(f"Обнаружен новый кластер: {cluster}")
