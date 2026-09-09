@@ -1,0 +1,111 @@
+Изменения от 2026-09-09 13:28:42.529761
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0409/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0409/config.yaml
+index 9966f8c2b..67266809a 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0409/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0409/config.yaml
+@@ -16,6 +16,6 @@ trial: false
+ admin_email: i.zhuravlev@otclick.ru
+ meta:
+   status: grace
+-  expiry_date: '2026-09-09'
++  expiry_date: '2026-09-25'
+   inn: '7701971109'
+   id: 8d09d9ad-8334-4bed-9e6b-88a30cda6cf0
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0016/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0016/config.yaml
+index ae4f0a96c..cd23e0619 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0016/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0016/config.yaml
+@@ -17,5 +17,5 @@ trial: false
+ meta:
+   id: 5dfc0841-4b5f-4748-ab21-6e8b33f4f5fb
+   status: grace
+-  expiry_date: '2026-09-16'
++  expiry_date: '2026-09-21'
+   inn: '5020087312'
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0187/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0187/config.yaml
+index bfda63ea0..0edfab4a9 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0187/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0187/config.yaml
+@@ -3,12 +3,19 @@ monitoring_enabled: false
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb04-0187"
+ cowork_s3_label: "cowork-tb04-0187"
+-cowork_subdomain: "cowork-tb04-0187"
++cowork_subdomain: "test17"
+ cowork_revision: "release/26.08.4"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ autosync: true
+-occupied: false
++occupied: true
+ bootstrap: true
++admin_email: obermanwitaliy@gmail.com
++trial: true
++meta:
++  status: trial
++  id: 441475f9-4531-4b2d-9ff8-81490c9ccbe1
++  inn: '7804568396'
++  expiry_date: '2026-09-16'
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0188/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0188/config.yaml
+index e641210ed..65af6aaca 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0188/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0188/config.yaml
+@@ -3,12 +3,19 @@ monitoring_enabled: false
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb04-0188"
+ cowork_s3_label: "cowork-tb04-0188"
+-cowork_subdomain: "cowork-tb04-0188"
++cowork_subdomain: "go"
+ cowork_revision: "release/26.08.4"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ autosync: true
+-occupied: false
++occupied: true
+ bootstrap: true
++admin_email: gra4oganesyan@gmail.com
++trial: true
++meta:
++  status: trial
++  id: 8bc32f08-d1b5-4641-a5e5-e0001d68e28c
++  inn: '603700637580'
++  expiry_date: '2026-09-16'
+diff --git a/dev/cowork/cowork-openfga-argocd.yaml b/dev/cowork/cowork-openfga-argocd.yaml
+index 952eac223..a57bf9b23 100644
+--- a/dev/cowork/cowork-openfga-argocd.yaml
++++ b/dev/cowork/cowork-openfga-argocd.yaml
+@@ -29,6 +29,7 @@ spec:
+           path: .
+           helm:
+             passCredentials: true
++            skipSchemaValidation: true
+             releaseName: openfga
+             valueFiles:
+               - $helm/{{.values.env}}/openfga/openfga-nxs-values.yaml
+diff --git a/dev/cowork/stands/cowork-dev-01/config.yaml b/dev/cowork/stands/cowork-dev-01/config.yaml
+index 03c71fc49..78e36ff29 100644
+--- a/dev/cowork/stands/cowork-dev-01/config.yaml
++++ b/dev/cowork/stands/cowork-dev-01/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-01"
+-cowork_revision: "feature/SDBPROD-1337/add-migration-data-job"
++cowork_revision: "fix/SDBPROD-319/revert-changing"
+ argocd_shard: "1"
+ stand_node_label: "cowork-dev-01"
+ cowork_s3_label: "cowork-dev"
+diff --git a/dev/cowork/stands/cowork-dev-qa-01/config.yaml b/dev/cowork/stands/cowork-dev-qa-01/config.yaml
+index 0518ee11e..17f0f9f1e 100644
+--- a/dev/cowork/stands/cowork-dev-qa-01/config.yaml
++++ b/dev/cowork/stands/cowork-dev-qa-01/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-qa-01"
+-cowork_revision: "bugfix/SDBPROD-1644/extend-system-skills"
++cowork_revision: "feature/SDBPROD-1542/realization-user-blocking"
+ argocd_shard: "1"
+ stand_node_label: "cowork-dev-02"
+ cowork_s3_label: "cowork-dev"

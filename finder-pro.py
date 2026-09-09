@@ -275,6 +275,17 @@ def open_tenant_console():
 def open_faq_agent():
     webbrowser.open(FAQ_AGENT_URL)
 
+def open_stand_config(selected):
+    """Открывает конфигурацию стенда в удалённом Git-репозитории."""
+    base_url = "https://git.sberdevices.ru/gigabb/infra/cowork/argocd/-/tree/master/cce-prod/cowork/clusters"
+    cluster = selected.get('stand_dir')
+    folder = selected.get('folder')
+    if not cluster or not folder:
+        print_warn("Не удалось определить путь к конфигурации стенда.")
+        return
+    url = f"{base_url}/{cluster}/{folder}?ref_type=heads"
+    webbrowser.open(url)
+
 def main():
     print_logo()
     script_dir = Path(__file__).parent.resolve()
@@ -341,8 +352,10 @@ def main():
             print("  2. Зайти на тенант")
             print("  3. Открыть консоль тенантов")
             print("  4. Запустить FAQ-агента")
+            print("  5. Открыть конфигурацию стенда")
             print("  0. Вернуться к поиску")
-            action = input("Выберите действие (0-4): ").strip()
+            print()  # добавлен перенос строки
+            action = input("Выберите действие (0-5): ").strip()
 
             if action == '0':
                 break
@@ -357,6 +370,9 @@ def main():
                 break
             elif action == '4':
                 open_faq_agent()
+                break
+            elif action == '5':
+                open_stand_config(selected)
                 break
             else:
                 print_warn("Неверный ввод, попробуйте снова.")

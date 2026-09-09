@@ -1,0 +1,16 @@
+Изменения от 2026-09-08 11:27:08.906178
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0379/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0379/config.yaml
+index 76630db5e..4af375de3 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0379/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0379/config.yaml
+@@ -15,7 +15,7 @@ bootstrap: true
+ trial: false
+ admin_email: stanislavkozlov@ttk.ru
+ meta:
+-  status: expired
+-  expiry_date: '2026-09-07'
++  status: grace
++  expiry_date: '2026-10-31'
+   inn: '7709219099'
+   id: bcdaea1e-4be9-4083-9f1f-d6c40a58e8e8
