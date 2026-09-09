@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 import subprocess, re, sys, webbrowser
-import threading
-import itertools
-import time
+import threading, itertools, time
+import json
 from pathlib import Path
 from datetime import datetime
 
@@ -18,12 +17,8 @@ RESET = '\033[0m'
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
 FAQ_AGENT_URL = "https://cowork.gigab2b.ru/workspaces/c63c8b9f-bdf0-4805-a314-b8da3eaeaea7"
 
-ZONES = [
-    {"path": "cce-prod/cowork/clusters/cce-prod-tb01", "label": "cce-prod-tb01", "url": "https://argocd-tb01.cowork.ru/applications/cowork/{folder}?resource="},
-    {"path": "cce-prod/cowork/clusters/cce-prod-st02", "label": "cce-prod-st02", "url": "https://argocd-st02.cowork.ru/applications/cowork/{folder}?resource="},
-    {"path": "cce-prod/cowork/clusters/cce-prod-tb04", "label": "cce-prod-tb04", "url": "https://argocd-tb04.cowork.ru/applications/cowork/{folder}?resource="},
-]
 CONFIG = "config.yaml"
+ZONES_CONFIG_FILE = Path(__file__).parent / "zones_config.json"
 
 # --- Функции цветного вывода (с разделителем для всех кроме INFO) ---
 def print_divider():
@@ -84,7 +79,7 @@ def input_with_timeout(prompt, timeout_seconds):
                 if ch in ('\r', '\n'):
                     print()
                     break
-                elif ch == '\b':  # backspace
+                elif ch == '\b':
                     if chars:
                         chars.pop()
                         sys.stdout.write('\b \b')
@@ -101,7 +96,7 @@ def input_with_timeout(prompt, timeout_seconds):
             if line:
                 return line.strip()
             else:
-                return None  # EOF
+                return None
         else:
             print()
             return None
@@ -124,6 +119,67 @@ def print_logo():
         print(f"|| {padded}||")
     print(border)
 
+# --- Утилиты для работы с зонами ---
+def load_zones():
+    if ZONES_CONFIG_FILE.exists():
+        try:
+            with open(ZONES_CONFIG_FILE, "r", encoding="utf-8") as f:
+                zones = json.load(f)
+                if isinstance(zones, list):
+                    return zones
+        except Exception:
+            pass
+    return []
+
+def save_zones(zones):
+    with open(ZONES_CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(zones, f, ensure_ascii=False, indent=2)
+
+def make_zone_from_cluster(cluster_name):
+    return {
+        "path": f"cce-prod/cowork/clusters/{cluster_name}",
+        "label": cluster_name,
+        "url": f"https://argocd-{cluster_name}.cowork.ru/applications/cowork/{{folder}}?resource="
+    }
+
+def get_remote_clusters(repo_root):
+    clusters_path = repo_root / "cce-prod/cowork/clusters"
+    if not clusters_path.exists():
+        return []
+    return sorted([d.name for d in clusters_path.iterdir() if d.is_dir()])
+
+def discover_and_save_zones(repo_root):
+    remote_clusters = get_remote_clusters(repo_root)
+    zones = [make_zone_from_cluster(c) for c in remote_clusters]
+    save_zones(zones)
+    return zones
+
+def check_and_update_zones(repo_root, zones):
+    remote_clusters = get_remote_clusters(repo_root)
+    updated = False
+
+    # Проверка доступности текущих кластеров
+    for zone in zones:
+        cluster_name = zone["path"].split("/")[-1]
+        if cluster_name not in remote_clusters:
+            print_error(f"Кластер {zone['label']} не доступен.")
+
+    # Поиск новых кластеров
+    new_clusters = [c for c in remote_clusters if c not in [z["path"].split("/")[-1] for z in zones]]
+    for cluster in new_clusters:
+        print_warn(f"Обнаружен новый кластер: {cluster}")
+        answer = input_with_timeout("Добавить в конфигурацию Finder новый кластер? (yes/no): ", 60)
+        if answer and answer.lower() in ("y", "yes"):
+            zones.append(make_zone_from_cluster(cluster))
+            save_zones(zones)
+            print_info(f"Кластер {cluster} добавлен в конфигурацию.")
+            updated = True
+        else:
+            print_info(f"Кластер {cluster} пропущен.")
+
+    if updated:
+        print_info("Конфигурация обновлена.")
+
 # --- Утилиты L2 ---
 def get_repo_root(start):
     if REPO_PATH.exists() and (REPO_PATH / ".git").exists():
@@ -139,12 +195,10 @@ def get_repo_root(start):
     raise FileNotFoundError("Не найден .git")
 
 def pull_repo(repo_root, news_dir):
-    # Запускаем анимацию спиннера
     stop_event = threading.Event()
     spinner_thread = threading.Thread(target=animate_spinner, args=(stop_event,), daemon=True)
     spinner_thread.start()
 
-    # Выводим сообщение без перевода строки, с анимацией вместо точек
     if sys.stdout.isatty():
         print(f"{WHITE}[{GREEN}INFO{WHITE}]{RESET} Обновление репозитория ", end='', flush=True)
     else:
@@ -199,11 +253,10 @@ def pull_repo(repo_root, news_dir):
             text=True
         ).stdout.strip()
 
-        # Останавливаем спиннер и завершаем строку
         stop_event.set()
         spinner_thread.join()
         if sys.stdout.isatty():
-            print()  # перевод строки после спиннера
+            print()
 
         if remote_url:
             print_info(f"Удалённый репозиторий: {remote_url}")
@@ -257,7 +310,7 @@ def pull_repo(repo_root, news_dir):
         stop_event.set()
         spinner_thread.join()
         if sys.stdout.isatty():
-            print()  # завершаем строку
+            print()
         print_error(str(e))
         sys.exit(1)
 
@@ -277,7 +330,7 @@ def read_config(file_path):
 
 def find_stands(root, criteria):
     results = []
-    for zone in ZONES:
+    for zone in zones_global:
         base = root / zone["path"]
         if not base.exists():
             continue
@@ -344,7 +397,6 @@ def open_faq_agent():
     webbrowser.open(FAQ_AGENT_URL)
 
 def open_stand_config(selected):
-    """Открывает конфигурацию стенда в удалённом Git-репозитории."""
     base_url = "https://git.sberdevices.ru/gigabb/infra/cowork/argocd/-/tree/master/cce-prod/cowork/clusters"
     cluster = selected.get('stand_dir')
     folder = selected.get('folder')
@@ -355,6 +407,7 @@ def open_stand_config(selected):
     webbrowser.open(url)
 
 def main():
+    global zones_global
     print_logo()
     script_dir = Path(__file__).parent.resolve()
     try:
@@ -366,8 +419,16 @@ def main():
     news_dir = script_dir / "news"
     pull_repo(repo_root, news_dir)
 
+    # Загрузка или автоматическое создание конфигурации зон
+    if not ZONES_CONFIG_FILE.exists():
+        zones_global = discover_and_save_zones(repo_root)
+        print_info(f"Создан файл zones_config.json с {len(zones_global)} кластерами.")
+    else:
+        zones_global = load_zones()
+        check_and_update_zones(repo_root, zones_global)
+
     all_found = True
-    for zone in ZONES:
+    for zone in zones_global:
         full_path = repo_root / zone["path"]
         if not full_path.exists():
             print_error(f"Кластер {zone['label']} не найден!")
@@ -414,7 +475,6 @@ def main():
         if selected is None:
             continue
 
-        # Меню действий, остаёмся в нём до выбора "0" или таймаута
         while True:
             print_action("Выбрать действие")
             print("  1. Открыть Admin Helper и ArgoCD")
@@ -445,4 +505,5 @@ def main():
                 print_warn("Неверный ввод, попробуйте снова.")
 
 if __name__ == "__main__":
+    zones_global = []
     main()

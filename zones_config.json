@@ -1,0 +1,17 @@
+[
+  {
+    "path": "cce-prod/cowork/clusters/cce-prod-st02",
+    "label": "cce-prod-st02",
+    "url": "https://argocd-cce-prod-st02.cowork.ru/applications/cowork/{folder}?resource="
+  },
+  {
+    "path": "cce-prod/cowork/clusters/cce-prod-tb01",
+    "label": "cce-prod-tb01",
+    "url": "https://argocd-cce-prod-tb01.cowork.ru/applications/cowork/{folder}?resource="
+  },
+  {
+    "path": "cce-prod/cowork/clusters/cce-prod-tb04",
+    "label": "cce-prod-tb04",
+    "url": "https://argocd-cce-prod-tb04.cowork.ru/applications/cowork/{folder}?resource="
+  }
+]
