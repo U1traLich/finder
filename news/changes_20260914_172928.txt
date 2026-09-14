@@ -1,0 +1,77 @@
+Изменения от 2026-09-14 17:29:28.929643
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0188/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0188/config.yaml
+index 50d548ae7..b77b159de 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0188/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0188/config.yaml
+@@ -11,3 +11,9 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ autosync: true
+ occupied: true
++trial: false
++meta:
++  id: 78d7ab5f-3acc-4c69-9f23-344890f0b17f
++  status: grace
++  expiry_date: '2026-10-06'
++  inn: '4629003691'
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0729/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0729/config.yaml
+index 153be84fc..13a9fcc90 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0729/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0729/config.yaml
+@@ -20,5 +20,5 @@ occupied: true
+ meta:
+   inn: '2311310591'
+   id: b2fd33bb-841c-430f-aa5b-92c378af5134
+-  expiry_date: '2026-09-15'
++  expiry_date: '2026-10-15'
+   status: grace
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0286/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0286/config.yaml
+index c7b1122cd..fc2b30d0a 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0286/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0286/config.yaml
+@@ -3,12 +3,19 @@ monitoring_enabled: false
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb04-0286"
+ cowork_s3_label: "cowork-tb04-0286"
+-cowork_subdomain: "cowork-tb04-0286"
++cowork_subdomain: "arriah"
+ cowork_revision: "release/26.08.4"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ autosync: true
+-occupied: false
++occupied: true
+ bootstrap: true
++trial: true
++admin_email: potapov_va@arriah.ru
++meta:
++  id: fde32ab9-4d49-46e9-a14c-e661af8b50e9
++  status: trial
++  expiry_date: '2026-09-21'
++  inn: '3327100048'
+diff --git a/dev/cowork/stands/cowork-dev-int-team-01/config.yaml b/dev/cowork/stands/cowork-dev-int-team-01/config.yaml
+index 08d4e919a..7aba86015 100644
+--- a/dev/cowork/stands/cowork-dev-int-team-01/config.yaml
++++ b/dev/cowork/stands/cowork-dev-int-team-01/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-int-team-01"
+-cowork_revision: "feature/SDBPROD-1470/connector-proxy-v3-poc"
++cowork_revision: "feature/SDBPROD-1470/connector-proxy-v2-poc"
+ argocd_shard: "1"
+ stand_node_label: "cowork-dev-05"
+ cowork_s3_label: "cowork-dev"
+diff --git a/stage/cowork/stands/cowork-test-1/config.yaml b/stage/cowork/stands/cowork-test-1/config.yaml
+index 2ee35b1f2..3b0bb8610 100644
+--- a/stage/cowork/stands/cowork-test-1/config.yaml
++++ b/stage/cowork/stands/cowork-test-1/config.yaml
+@@ -9,7 +9,7 @@ juicefs_enabled: true
+ cowork_data_size: "100Gi"
+ 
+ cowork_subdomain: "test-1"
+-cowork_revision: "release/26.09.1"
++cowork_revision: "release/26.09.2"
+ 
+ autosync: true
+ occupied: true
