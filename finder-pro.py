@@ -442,9 +442,7 @@ def open_stand_config(selected):
     url = f"{base_url}/{cluster}/{folder}?ref_type=heads"
     webbrowser.open(url)
 
-# --- Управление пространствами: шаблоны скриптов ---
-# Полные шаблоны (тело — рабочие версии change_workspace_owner / add_all_users_to_workspace), значения подставляются
-# через .replace(), чтобы не экранировать фигурные скобки во внутренних f-строках.
+# --- Управление пространствами: ---
 
 _CHANGE_OWNER_TEMPLATE = '''import asyncio
 import os
