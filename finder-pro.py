@@ -1,11 +1,64 @@
 #!/usr/bin/env python3
-import subprocess, re, sys, webbrowser
-import threading, itertools, time
-import json
-from pathlib import Path
-from datetime import datetime
+"""GigaFinder — поиск стендов Giga Cowork и управление пространствами.
 
-# --- Цветовые коды (из L1) ---
+Поиск стендов по config.yaml в репозитории argocd, быстрый доступ к
+инструментам (Admin Helper, тенант, ArgoCD) и генерация скриптов для
+управления пространствами (смена владельца, добавление пользователей,
+вывод списка пространств).
+"""
+
+import itertools
+import json
+import re
+import subprocess
+import sys
+import threading
+import time
+import webbrowser
+from datetime import datetime
+from pathlib import Path
+
+# --- Версия ---
+VERSION = "v2.1.0"
+
+# --- Пути и константы ---
+REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
+FAQ_AGENT_URL = "https://cowork.gigab2b.ru/workspaces/c63c8b9f-bdf0-4805-a314-b8da3eaeaea7"
+CONFIG = "config.yaml"
+ZONES_DIR = Path(__file__).parent / "zones"
+ZONES_CONFIG_FILE = ZONES_DIR / "zones_config.json"
+EXEC_DIR = Path(__file__).parent / "exec"
+
+# Зоны подменю «Управление пространствами».
+# code — суффикс ArgoCD (argocd-<code>.cowork.ru); cluster — имя кластера в репозитории.
+WORKSPACE_ZONES = [
+    {"code": "st02", "cluster": "cce-prod-st02"},
+    {"code": "tb01", "cluster": "cce-prod-tb01"},
+    {"code": "tb04", "cluster": "cce-prod-tb04"},
+]
+# Имя приложения ArgoCD, в котором живёт управляющий под debug-ubuntu.
+ARGOCD_APP = "cowork/cowork"
+# Подстрока имени пода управляющего контейнера.
+DEBUG_POD_PREFIX = "debug-ubuntu"
+
+# --- Базовые пространства (опция 5 подменю, только стенд demo) ---
+# ID базовых пространств, доступ к которым выдаётся пользователю одним скриптом.
+BASE_WORKSPACE_IDS = [
+    "f7a1d8cc-63d8-4063-a9b0-345cad57b5d6",
+    "f4d1b8a9-12b2-4cd8-af5c-3d03b459d24e",
+    "81782a49-c2a8-4c8a-8b06-03c1c61201b0",
+    "5d261c97-8979-41b5-9970-b6185518f6d0",
+    "ede5105a-721f-46cc-a529-462353a45855",
+    "f77ce42b-9f5f-4870-a5b4-c46a0e6072c4",
+    "9d5999da-fbcb-4278-ad9b-a5c90e686f69",
+]
+# Опция доступна только на стенде demo (cowork-st02-0503).
+DEMO_STAND_SUBDOMAIN = "demo"
+# DSN баз данных стенда demo (полные, с паролем — опция работает без ввода DSN).
+DEMO_YGGDRASIL_URL = "postgresql://yggdrasil:22C3LZ44HU0NBvlLj32aQ7IA4S71nmpqLpa9RA0zBIvMj8Bg@yggdrasil-postgres-rw.cowork-st02-0503.svc.cluster.local:5432/yggdrasil"
+DEMO_HEIMDALL_URL = "postgresql://heimdall_auth:8Kmq71GyU1ezPmkys8mczPHbh62pxhMnsWmHi0efSmfuDEPR@heimdall-auth-postgres-rw.cowork-st02-0503.svc.cluster.local:5432/heimdall_auth"
+
+# --- Цветовые коды ---
 WHITE = '\033[97m'
 GREEN = '\033[92m'
 YELLOW = '\033[93m'
@@ -13,70 +66,44 @@ RED = '\033[91m'
 CYAN = '\033[96m'
 RESET = '\033[0m'
 
-# ----- НАСТРОЙКИ L2 -----
-REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
-FAQ_AGENT_URL = "https://cowork.gigab2b.ru/workspaces/c63c8b9f-bdf0-4805-a314-b8da3eaeaea7"
+# --- Цветной вывод ---
+def _tag(label, color):
+    """Метка вида [INFO]/[WARN]/[ERROR]/[ACTION] с подсветкой (без подсветки вне TTY)."""
+    if sys.stdout.isatty():
+        return f"{WHITE}[{color}{label}{WHITE}]{RESET}"
+    return f"[{label}]"
 
-CONFIG = "config.yaml"
-VERSION = "v2.0.0"
-ZONES_DIR = Path(__file__).parent / "zones"
-ZONES_CONFIG_FILE = ZONES_DIR / "zones_config.json"
-EXEC_DIR = Path(__file__).parent / "exec"
 
-# --- Управление пространствами: зоны и ArgoCD ---
-# Зоны, доступные в подменю «Управление пространствами».
-# code — суффикс ArgoCD (argocd-<code>.cowork.ru); cluster — имя кластера в репозитории.
-WORKSPACE_ZONES = [
-    {"code": "st02", "cluster": "cce-prod-st02"},
-    {"code": "tb01", "cluster": "cce-prod-tb01"},
-    {"code": "tb04", "cluster": "cce-prod-tb04"},
-]
+def colorize(text, color):
+    return f"{color}{text}{RESET}" if sys.stdout.isatty() else text
 
-# Имя приложения ArgoCD, в котором живёт управляющий под debug-ubuntu.
-ARGOCD_APP = "cowork/cowork"
-# Подстрока имени пода управляющего контейнера.
-DEBUG_POD_PREFIX = "debug-ubuntu"
 
-# --- Функции цветного вывода (с разделителем для всех кроме INFO) ---
 def print_divider():
     print("\n" + "=" * 50)
 
+
 def print_info(message):
-    if sys.stdout.isatty():
-        print(f"{WHITE}[{GREEN}INFO{WHITE}]{RESET} {message}")
-    else:
-        print(f"[INFO] {message}")
+    print(f"{_tag('INFO', GREEN)} {message}")
+
 
 def print_warn(message):
     print_divider()
-    if sys.stdout.isatty():
-        print(f"{WHITE}[{YELLOW}WARN{WHITE}]{RESET} {message}")
-    else:
-        print(f"[WARN] {message}")
+    print(f"{_tag('WARN', YELLOW)} {message}")
+
 
 def print_error(message):
     print_divider()
-    if sys.stdout.isatty():
-        print(f"{WHITE}[{RED}ERROR{WHITE}]{RESET} {message}")
-    else:
-        print(f"[ERROR] {message}")
+    print(f"{_tag('ERROR', RED)} {message}")
+
 
 def print_action(message, end="\n"):
     print_divider()
-    if sys.stdout.isatty():
-        print(f"{WHITE}[{CYAN}ACTION{WHITE}]{RESET} {message}", end=end, flush=True)
-    else:
-        print(f"[ACTION] {message}", end=end, flush=True)
+    print(f"{_tag('ACTION', CYAN)} {message}", end=end, flush=True)
 
-def colorize_yellow(text):
-    return f"{YELLOW}{text}{RESET}" if sys.stdout.isatty() else text
-
-def colorize_cyan(text):
-    return f"{CYAN}{text}{RESET}" if sys.stdout.isatty() else text
 
 def action_label():
     """Подсветка '[ACTION]' для промптов ввода — как у print_action."""
-    return f"{WHITE}[{CYAN}ACTION{WHITE}]{RESET}" if sys.stdout.isatty() else "[ACTION]"
+    return _tag("ACTION", CYAN)
 
 # --- Анимация спиннера ---
 def animate_spinner(stop_event):
@@ -126,50 +153,51 @@ def input_with_timeout(prompt, timeout_seconds):
             return None
 
 # --- Логотип GigaFinder (ASCII-арт) ---
+_LOGO_LINES = [
+    "  ██████╗ ██╗ ██████╗  █████╗ ███████╗██╗███╗   ██╗██████╗ ███████╗██████╗ ",
+    "██╔════╝ ██║██╔════╝ ██╔══██╗██╔════╝██║████╗  ██║██╔══██╗██╔════╝██╔══██╗",
+    "██║  ███╗██║██║  ███╗███████║█████╗  ██║██╔██╗ ██║██║  ██║█████╗  ██████╔╝",
+    "██║   ██║██║██║   ██║██╔══██║██╔══╝  ██║██║╚██╗██║██║  ██║██╔══╝  ██╔══██╗",
+    "╚██████╔╝██║╚██████╔╝██║  ██║██║     ██║██║ ╚████║██████╔╝███████╗██║  ██║",
+    " ╚═════╝ ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝",
+]
+
+
 def print_logo():
-    logo_lines = [
-        "  ██████╗ ██╗ ██████╗  █████╗ ███████╗██╗███╗   ██╗██████╗ ███████╗██████╗ ",
-        "██╔════╝ ██║██╔════╝ ██╔══██╗██╔════╝██║████╗  ██║██╔══██╗██╔════╝██╔══██╗",
-        "██║  ███╗██║██║  ███╗███████║█████╗  ██║██╔██╗ ██║██║  ██║█████╗  ██████╔╝",
-        "██║   ██║██║██║   ██║██╔══██║██╔══╝  ██║██║╚██╗██║██║  ██║██╔══╝  ██╔══██╗",
-        "╚██████╔╝██║╚██████╔╝██║  ██║██║     ██║██║ ╚████║██████╔╝███████╗██║  ██║",
-        " ╚═════╝ ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝",
-    ]
-    max_len = max(len(line) for line in logo_lines)
+    max_len = max(len(line) for line in _LOGO_LINES)
     border = "=" * (max_len + 4)
     print(border)
-    for line in logo_lines:
-        padded = line + " " * (max_len - len(line))
-        print(f"|| {padded}||")
+    for line in _LOGO_LINES:
+        print(f"|| {line.ljust(max_len)}||")
     print(border)
     print(f"  Версия: {VERSION}")
 
-# --- Утилиты для работы с зонами ---
+# --- Конфигурация зон ---
 def load_zones():
-    if ZONES_CONFIG_FILE.exists():
-        try:
-            with open(ZONES_CONFIG_FILE, "r", encoding="utf-8") as f:
-                zones = json.load(f)
-                if isinstance(zones, list):
-                    # Автокоррекция URL, если ранее был создан файл с багом
-                    corrected = False
-                    for zone in zones:
-                        if "url" in zone and "argocd-cce-prod-" in zone["url"]:
-                            cluster_name = zone["path"].split("/")[-1]
-                            code = cluster_name.rsplit("-", 1)[-1]
-                            zone["url"] = f"https://argocd-{code}.cowork.ru/applications/cowork/{{folder}}?resource="
-                            corrected = True
-                    if corrected:
-                        save_zones(zones)
-                    return zones
-        except Exception:
-            pass
-    return []
+    if not ZONES_CONFIG_FILE.exists():
+        return []
+    try:
+        zones = json.loads(ZONES_CONFIG_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(zones, list):
+        return []
+    # Автокоррекция URL, если ранее был создан файл с багом.
+    corrected = False
+    for zone in zones:
+        if "url" in zone and "argocd-cce-prod-" in zone["url"]:
+            code = zone["path"].split("/")[-1].rsplit("-", 1)[-1]
+            zone["url"] = f"https://argocd-{code}.cowork.ru/applications/cowork/{{folder}}?resource="
+            corrected = True
+    if corrected:
+        save_zones(zones)
+    return zones
+
 
 def save_zones(zones):
     ZONES_DIR.mkdir(parents=True, exist_ok=True)
-    with open(ZONES_CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(zones, f, ensure_ascii=False, indent=2)
+    ZONES_CONFIG_FILE.write_text(json.dumps(zones, ensure_ascii=False, indent=2), encoding="utf-8")
+
 
 def make_zone_from_cluster(cluster_name):
     # cluster_name: "cce-prod-st02"
@@ -180,29 +208,28 @@ def make_zone_from_cluster(cluster_name):
         "url": f"https://argocd-{code}.cowork.ru/applications/cowork/{{folder}}?resource="
     }
 
+
 def get_remote_clusters(repo_root):
     clusters_path = repo_root / "cce-prod/cowork/clusters"
     if not clusters_path.exists():
         return []
-    return sorted([d.name for d in clusters_path.iterdir() if d.is_dir()])
+    return sorted(d.name for d in clusters_path.iterdir() if d.is_dir())
+
 
 def discover_and_save_zones(repo_root):
-    remote_clusters = get_remote_clusters(repo_root)
-    zones = [make_zone_from_cluster(c) for c in remote_clusters]
+    zones = [make_zone_from_cluster(c) for c in get_remote_clusters(repo_root)]
     save_zones(zones)
     return zones
 
+
 def check_and_update_zones(repo_root, zones):
     remote_clusters = get_remote_clusters(repo_root)
-    updated = False
-
+    known = {z["path"].split("/")[-1] for z in zones}
     for zone in zones:
-        cluster_name = zone["path"].split("/")[-1]
-        if cluster_name not in remote_clusters:
+        if zone["path"].split("/")[-1] not in remote_clusters:
             print_error(f"Кластер {zone['label']} не доступен.")
-
-    new_clusters = [c for c in remote_clusters if c not in [z["path"].split("/")[-1] for z in zones]]
-    for cluster in new_clusters:
+    updated = False
+    for cluster in (c for c in remote_clusters if c not in known):
         print_warn(f"Обнаружен новый кластер: {cluster}")
         answer = input_with_timeout("Добавить в конфигурацию Finder новый кластер? (yes/no): ", 60)
         if answer and answer.lower() in ("y", "yes"):
@@ -212,15 +239,14 @@ def check_and_update_zones(repo_root, zones):
             updated = True
         else:
             print_info(f"Кластер {cluster} пропущен.")
-
     if updated:
         print_info("Конфигурация обновлена.")
 
-# --- Утилиты L2 ---
+# --- Репозиторий argocd ---
 def get_repo_root(start):
     if REPO_PATH.exists() and (REPO_PATH / ".git").exists():
         return REPO_PATH.resolve()
-    for p in [start, start.parent, start.parent / "argocd"]:
+    for p in (start, start.parent, start.parent / "argocd"):
         if (p / ".git").exists():
             return p.resolve()
     cur = start.resolve()
@@ -230,143 +256,120 @@ def get_repo_root(start):
         cur = cur.parent
     raise FileNotFoundError("Не найден .git")
 
+
+def _git(repo_root, *args):
+    return subprocess.run(["git", *args], cwd=repo_root, capture_output=True, text=True)
+
+
+def _stop_spinner(stop_event, spinner):
+    stop_event.set()
+    spinner.join()
+    if sys.stdout.isatty():
+        print()
+
+
+def _extract_subdomain(config_path):
+    try:
+        if config_path.exists():
+            m = re.search(r'cowork_subdomain:\s*"?([^"\n]+)"?', config_path.read_text(encoding="utf-8"))
+            if m:
+                return m.group(1).strip()
+    except (OSError, UnicodeDecodeError):
+        pass
+    return "?"
+
+
+def _report_changes(repo_root, news_dir, head_before, head_after):
+    diff_stat = _git(repo_root, "diff", "--stat", head_before, head_after).stdout
+    diff_full = _git(repo_root, "diff", head_before, head_after).stdout
+    if diff_full:
+        news_dir.mkdir(parents=True, exist_ok=True)
+        now = datetime.now()
+        fname = f"changes_{now.strftime('%Y%m%d_%H%M%S')}.txt"
+        (news_dir / fname).write_text(f"Изменения от {now}\n{'=' * 40}\n{diff_full}", encoding="utf-8")
+        print_info(f"Полные изменения сохранены в {news_dir / fname}")
+    if diff_stat:
+        files = _git(repo_root, "diff", "--name-only", head_before, head_after).stdout.strip().split("\n")
+        print_info("Изменённые файлы (cowork_subdomain):")
+        for f in files:
+            if f:
+                print(f"  {f} ({colorize(_extract_subdomain(repo_root / f), YELLOW)})")
+    else:
+        print_warn("Изменения затянуты, но статистика пуста.")
+
+
 def pull_repo(repo_root, news_dir):
     stop_event = threading.Event()
-    spinner_thread = threading.Thread(target=animate_spinner, args=(stop_event,), daemon=True)
-    spinner_thread.start()
-
-    if sys.stdout.isatty():
-        print(f"{WHITE}[{GREEN}INFO{WHITE}]{RESET} Обновление репозитория ", end='', flush=True)
-    else:
-        print("[INFO] Обновление репозитория...", end='', flush=True)
-
+    spinner = threading.Thread(target=animate_spinner, args=(stop_event,), daemon=True)
+    spinner.start()
+    suffix = " " if sys.stdout.isatty() else "..."
+    print(f"{_tag('INFO', GREEN)} Обновление репозитория{suffix}", end='', flush=True)
     try:
-        remote_url = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True
-        ).stdout.strip()
+        remote_url = _git(repo_root, "remote", "get-url", "origin").stdout.strip()
+        head_before = _git(repo_root, "rev-parse", "HEAD").stdout.strip()
 
-        head_before = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True
-        ).stdout.strip()
+        fetch = _git(repo_root, "fetch", "origin")
+        if fetch.returncode != 0:
+            raise RuntimeError(f"git fetch failed: {fetch.stderr}")
 
-        fetch_result = subprocess.run(
-            ["git", "fetch", "origin"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True
-        )
-        if fetch_result.returncode != 0:
-            raise RuntimeError(f"git fetch failed: {fetch_result.stderr}")
-
-        current_branch = subprocess.run(
-            ["git", "symbolic-ref", "--short", "HEAD"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True
-        ).stdout.strip()
-        if not current_branch:
+        branch = _git(repo_root, "symbolic-ref", "--short", "HEAD").stdout.strip()
+        if not branch:
             raise RuntimeError("Не удалось определить текущую ветку.")
 
-        pull_result = subprocess.run(
-            ["git", "pull", "origin", current_branch],
-            cwd=repo_root,
-            capture_output=True,
-            text=True
-        )
-        if pull_result.returncode != 0:
-            raise RuntimeError(f"git pull failed: {pull_result.stderr}")
+        pull = _git(repo_root, "pull", "origin", branch)
+        if pull.returncode != 0:
+            raise RuntimeError(f"git pull failed: {pull.stderr}")
 
-        head_after = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True
-        ).stdout.strip()
+        head_after = _git(repo_root, "rev-parse", "HEAD").stdout.strip()
 
-        stop_event.set()
-        spinner_thread.join()
-        if sys.stdout.isatty():
-            print()
+        _stop_spinner(stop_event, spinner)
 
         if remote_url:
             print_info(f"Удалённый репозиторий: {remote_url}")
 
         if head_before and head_after and head_before != head_after:
-            diff_stat = subprocess.run(
-                ["git", "diff", "--stat", head_before, head_after],
-                cwd=repo_root,
-                capture_output=True,
-                text=True
-            ).stdout
-            diff_full = subprocess.run(
-                ["git", "diff", head_before, head_after],
-                cwd=repo_root,
-                capture_output=True,
-                text=True
-            ).stdout
-            if diff_full:
-                news_dir.mkdir(parents=True, exist_ok=True)
-                fname = f"changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-                (news_dir / fname).write_text(f"Изменения от {datetime.now()}\n{'='*40}\n{diff_full}", encoding='utf-8')
-                print_info(f"Полные изменения сохранены в {news_dir / fname}")
-            if diff_stat:
-                files = subprocess.run(
-                    ["git", "diff", "--name-only", head_before, head_after],
-                    cwd=repo_root,
-                    capture_output=True,
-                    text=True
-                ).stdout.strip().split('\n')
-                print_info("Изменённые файлы (cowork_subdomain):")
-                for f in files:
-                    if not f:
-                        continue
-                    try:
-                        full_path = repo_root / f
-                        if full_path.exists():
-                            content = full_path.read_text(encoding='utf-8')
-                            m = re.search(r'cowork_subdomain:\s*"?([^"\n]+)"?', content)
-                            sub = m.group(1).strip() if m else "?"
-                        else:
-                            sub = "?"
-                    except:
-                        sub = "?"
-                    print(f"  {f} ({colorize_yellow(sub)})")
-            else:
-                print_warn("Изменения затянуты, но статистика пуста.")
+            _report_changes(repo_root, news_dir, head_before, head_after)
         else:
             print_info("Новых изменений нет.")
-
     except Exception as e:
-        stop_event.set()
-        spinner_thread.join()
-        if sys.stdout.isatty():
-            print()
+        _stop_spinner(stop_event, spinner)
         print_error(str(e))
         sys.exit(1)
 
+# --- Поиск стендов ---
+_CONFIG_KEYS = ("stand_name", "cowork_subdomain", "admin_email", "expiry_date", "cowork_revision")
+
+
 def read_config(file_path):
     try:
-        content = file_path.read_text(encoding='utf-8')
-    except:
+        content = file_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
         return {}
     data = {}
-    for key in ["stand_name", "cowork_subdomain", "admin_email", "expiry_date", "cowork_revision"]:
+    for key in _CONFIG_KEYS:
         m = re.search(rf'{key}:\s*"?([^"\n]+)"?', content)
         data[key] = m.group(1).strip() if m else None
     m = re.search(r'(?:meta\.)?inn:\s*"?([^"\n]+)"?', content)
-    data['inn'] = m.group(1).strip() if m else None
-    data['broken'] = '# broken stand' in content
+    data["inn"] = m.group(1).strip() if m else None
+    data["broken"] = "# broken stand" in content
     return data
 
-def find_stands(root, criteria):
+
+def _matches(data, criteria):
+    for criterion, value in (
+        (criteria.get("subdomain"), data.get("cowork_subdomain")),
+        (criteria.get("email"), data.get("admin_email")),
+        (criteria.get("stand_name"), data.get("stand_name")),
+    ):
+        if criterion and value and criterion.lower() in value.lower():
+            return True
+    inn = criteria.get("inn")
+    return bool(inn and data.get("inn") and inn in data["inn"])
+
+
+def find_stands(root, zones, criteria):
     results = []
-    for zone in zones_global:
+    for zone in zones:
         base = root / zone["path"]
         if not base.exists():
             continue
@@ -375,22 +378,28 @@ def find_stands(root, criteria):
             if not stand_dir.name.startswith("cowork-"):
                 continue
             data = read_config(config_path)
-            match = False
-            if criteria.get('subdomain') and data.get('cowork_subdomain') and criteria['subdomain'].lower() in data['cowork_subdomain'].lower():
-                match = True
-            if criteria.get('email') and data.get('admin_email') and criteria['email'].lower() in data['admin_email'].lower():
-                match = True
-            if criteria.get('inn') and data.get('inn') and criteria['inn'] in data['inn']:
-                match = True
-            if criteria.get('stand_name') and data.get('stand_name') and criteria['stand_name'].lower() in data['stand_name'].lower():
-                match = True
-            if match:
-                data['folder'] = stand_dir.name
-                data['stand_dir'] = zone["label"]
-                data['url_template'] = zone["url"]
-                data['config_path'] = config_path
-                results.append(data)
+            if not _matches(data, criteria):
+                continue
+            data["folder"] = stand_dir.name
+            data["stand_dir"] = zone["label"]
+            data["url_template"] = zone["url"]
+            data["config_path"] = config_path
+            results.append(data)
     return results
+
+
+def _print_stand(idx, data):
+    print(f"\n{idx}. Папка: {data.get('folder', 'N/A')}")
+    print(f"   Расположение: {data.get('stand_dir', 'N/A')}")
+    print(f"   stand_name: {data.get('stand_name', 'N/A')}")
+    print(f"   cowork_subdomain: {data.get('cowork_subdomain', 'N/A')}")
+    print(f"   admin_email: {data.get('admin_email', 'N/A')}")
+    print(f"   ИНН: {data.get('inn', 'N/A')}")
+    print(f"   expiry_date: {data.get('expiry_date', 'N/A')}")
+    print(f"   cowork_revision: {data.get('cowork_revision', 'N/A')}")
+    if data.get("broken"):
+        print("   [broken stand]")
+
 
 def select_stand(results):
     if len(results) == 1:
@@ -398,16 +407,17 @@ def select_stand(results):
     print_warn("Найдено несколько стендов.")
     for i, data in enumerate(results, 1):
         sub = data.get('cowork_subdomain', 'N/A')
-        print(f"  {i}. {data['folder']} ({colorize_yellow(sub)})")
+        print(f"  {i}. {data['folder']} ({colorize(sub, YELLOW)})")
     while True:
         print_action("Введите номер стенда (0 для отмены):", end="")
         choice = input().strip()
         if choice == '0':
             return None
         if choice.isdigit() and 1 <= int(choice) <= len(results):
-            return results[int(choice)-1]
+            return results[int(choice) - 1]
         print_warn("Неверный ввод, попробуйте снова.")
 
+# --- Быстрые действия (браузер) ---
 def open_links(selected, script_dir):
     helper = script_dir / "admin-helper-new.html"
     if helper.exists():
@@ -417,20 +427,22 @@ def open_links(selected, script_dir):
     url = selected['url_template'].format(folder=selected['folder'])
     webbrowser.open(url)
 
+
 def open_tenant(selected):
     subdomain = selected.get('cowork_subdomain')
     if not subdomain:
         print_warn("Не указан cowork_subdomain, невозможно открыть тенант.")
         return
-    url = f"https://{subdomain}.cowork.ru"
-    webbrowser.open(url)
+    webbrowser.open(f"https://{subdomain}.cowork.ru")
+
 
 def open_tenant_console():
-    url = "https://tenant-console.cowork.ru/"
-    webbrowser.open(url)
+    webbrowser.open("https://tenant-console.cowork.ru/")
+
 
 def open_faq_agent():
     webbrowser.open(FAQ_AGENT_URL)
+
 
 def open_stand_config(selected):
     base_url = "https://git.sberdevices.ru/gigabb/infra/cowork/argocd/-/tree/master/cce-prod/cowork/clusters"
@@ -439,10 +451,11 @@ def open_stand_config(selected):
     if not cluster or not folder:
         print_warn("Не удалось определить путь к конфигурации стенда.")
         return
-    url = f"{base_url}/{cluster}/{folder}?ref_type=heads"
-    webbrowser.open(url)
+    webbrowser.open(f"{base_url}/{cluster}/{folder}?ref_type=heads")
 
-# --- Управление пространствами: ---
+# --- Управление пространствами: шаблоны сгенерированных скриптов ---
+# Полные шаблоны (тело — рабочие версии change_workspace_owner / add_all_users_to_workspace), значения подставляются
+# через .replace(), чтобы не экранировать фигурные скобки во внутренних f-строках.
 
 _CHANGE_OWNER_TEMPLATE = '''import asyncio
 import os
@@ -881,7 +894,6 @@ if __name__ == "__main__":
     asyncio.run(main())
 '''
 
-
 _ADD_USER_TEMPLATE = '''import asyncio
 import os
 import sys
@@ -1116,10 +1128,13 @@ if __name__ == "__main__":
 '''
 
 
+def _ids_block(workspace_ids):
+    return ",\n".join(f'    "{w}"' for w in workspace_ids)
+
+
 def generate_change_owner_script(workspace_ids, new_owner_email, dry_run, ygg_url, hm_url):
-    ids_block = ",\n".join(f'    "{w}"' for w in workspace_ids)
     return (_CHANGE_OWNER_TEMPLATE
-            .replace("__IDS__", ids_block)
+            .replace("__IDS__", _ids_block(workspace_ids))
             .replace("__EMAIL__", json.dumps(new_owner_email))
             .replace("__DRY__", "True" if dry_run else "False")
             .replace("__YGG__", json.dumps(ygg_url))
@@ -1127,17 +1142,15 @@ def generate_change_owner_script(workspace_ids, new_owner_email, dry_run, ygg_ur
 
 
 def generate_mass_add_script(workspace_ids, ygg_url, hm_url):
-    ids_block = ",\n".join(f'    "{w}"' for w in workspace_ids)
     return (_MASS_ADD_TEMPLATE
-            .replace("__IDS__", ids_block)
+            .replace("__IDS__", _ids_block(workspace_ids))
             .replace("__YGG__", json.dumps(ygg_url))
             .replace("__HM__", json.dumps(hm_url)))
 
 
 def generate_add_user_script(workspace_ids, user_email, dry_run, ygg_url, hm_url):
-    ids_block = ",\n".join(f'    "{w}"' for w in workspace_ids)
     return (_ADD_USER_TEMPLATE
-            .replace("__IDS__", ids_block)
+            .replace("__IDS__", _ids_block(workspace_ids))
             .replace("__EMAIL__", json.dumps(user_email))
             .replace("__DRY__", "True" if dry_run else "False")
             .replace("__YGG__", json.dumps(ygg_url))
@@ -1152,18 +1165,19 @@ def build_db_url(user, host, folder, db):
     # Шаблон с полным DNS-суффиксом неймспейса стенда (неймспейс = имя папки стенда).
     return f"postgresql://{user}:<ПАРОЛЬ>@{host}.{folder}.svc.cluster.local:5432/{db}"
 
-
 # --- Управление пространствами: ArgoCD ---
+def _argocd_base(zone_code):
+    return f"https://argocd-{zone_code}.cowork.ru"
+
+
 def open_pod_exec(zone_code, stand_name, app_suffix):
     """Открывает страницу приложения стенда (yggdrasil / heimdall) в ArgoCD.
 
     stand_name — имя папки/неймспейса стенда из результата поиска (например
     cowork-st02-0270). app_suffix — "yggdrasil" или "heimdall". Под в списке
     приложения выбирается вручную, вкладка exec."""
-    base = f"https://argocd-{zone_code}.cowork.ru"
     app_path = f"{stand_name}/{stand_name}-{app_suffix}"
-    url = f"{base}/applications/{app_path}?resource="
-    webbrowser.open(url)
+    webbrowser.open(f"{_argocd_base(zone_code)}/applications/{app_path}?resource=")
     print_info(f"В списке приложения выберите под {app_suffix}* и откройте вкладку exec.")
 
 
@@ -1174,13 +1188,9 @@ def open_workspace_exec(zone_code, script_content, script_name):
     out = EXEC_DIR / script_name
     out.write_text(script_content, encoding="utf-8")
     print_info(f"Скрипт сохранён: {out}")
-
-    base = f"https://argocd-{zone_code}.cowork.ru"
-    url = f"{base}/applications/{ARGOCD_APP}?resource="
-    webbrowser.open(url)
+    webbrowser.open(f"{_argocd_base(zone_code)}/applications/{ARGOCD_APP}?resource=")
     print_info(f"В списке приложения выберите под {DEBUG_POD_PREFIX}* (вкладка exec), "
                f"скопируйте содержимое {script_name} в веб-терминал и запустите: python3 {script_name}")
-
 
 # --- Управление пространствами: ввод параметров ---
 def prompt_workspace_ids():
@@ -1227,57 +1237,92 @@ def _expand_dns_suffix(url, folder):
     return f"{scheme_user}{new_host}{port or ''}{path}"
 
 
+def _resolve_db_url(raw, user, host, db, folder, var_name):
+    """Разбирает введённую строку в DSN; при неудаче — шаблон с <ПАРОЛЬ>."""
+    url = _extract_dsn(raw)
+    if raw and url is None:
+        print_warn("Строка не распознана (ожидается 'ИМЯ=postgresql://...'). Вставлен шаблон с <ПАРОЛЬ>.")
+    if url is None:
+        url = build_db_url(user, host, folder, db)
+        if not raw:
+            print_warn(f"{var_name} не задан — вставлен шаблон с <ПАРОЛЬ>, заполните в скрипте.")
+    else:
+        url = _expand_dns_suffix(url, folder)
+    return url
+
+
 def prompt_db_urls(selected, zone, need_heimdall=True):
     folder = selected.get("folder", "")
     stand_name = selected.get("stand_name") or folder
 
     print_info("Открываю приложение yggdrasil в ArgoCD — скопируйте YGGDRASIL_DATABASE_URL.")
     open_pod_exec(zone["code"], stand_name, "yggdrasil")
-    ygg_raw = input(f"{action_label()} Вставьте строку целиком (в поде: {colorize_cyan('env | grep YGGDRASIL_DATABASE_URL')}): ").strip()
+    ygg_raw = input(f"{action_label()} Вставьте строку целиком (в поде: {colorize('env | grep YGGDRASIL_DATABASE_URL', CYAN)}): ").strip()
 
     hm_raw = ""
     if need_heimdall:
         print_info("Открываю приложение heimdall в ArgoCD — скопируйте AUTH_DATABASE_URL.")
         open_pod_exec(zone["code"], stand_name, "heimdall")
-        hm_raw = input(f"{action_label()} Вставьте строку целиком (в поде: {colorize_cyan('env | grep AUTH_DATABASE_URL')}): ").strip()
+        hm_raw = input(f"{action_label()} Вставьте строку целиком (в поде: {colorize('env | grep AUTH_DATABASE_URL', CYAN)}): ").strip()
 
-    ygg = _extract_dsn(ygg_raw)
-    if ygg_raw and ygg is None:
-        print_warn("Строка не распознана (ожидается 'ИМЯ=postgresql://...'). Вставлен шаблон с <ПАРОЛЬ>.")
-    if ygg is None:
-        ygg = build_db_url("yggdrasil", "yggdrasil-postgres-rw", folder, "yggdrasil")
-        if not ygg_raw:
-            print_warn("YGGDRASIL_DATABASE_URL не задан — вставлен шаблон с <ПАРОЛЬ>, заполните в скрипте.")
-    else:
-        ygg = _expand_dns_suffix(ygg, folder)
-
+    ygg = _resolve_db_url(ygg_raw, "yggdrasil", "yggdrasil-postgres-rw", "yggdrasil", folder, "YGGDRASIL_DATABASE_URL")
     hm = None
     if need_heimdall:
-        hm = _extract_dsn(hm_raw)
-        if hm_raw and hm is None:
-            print_warn("Строка не распознана (ожидается 'ИМЯ=postgresql://...'). Вставлен шаблон с <ПАРОЛЬ>.")
-        if hm is None:
-            hm = build_db_url("heimdall_auth", "heimdall-auth-postgres-rw", folder, "heimdall_auth")
-            if not hm_raw:
-                print_warn("HEIMDALL_DATABASE_URL не задан — вставлен шаблон с <ПАРОЛЬ>, заполните в скрипте.")
-        else:
-            hm = _expand_dns_suffix(hm, folder)
+        hm = _resolve_db_url(hm_raw, "heimdall_auth", "heimdall-auth-postgres-rw", "heimdall_auth", folder, "HEIMDALL_DATABASE_URL")
 
     return ygg, hm
 
 
 def resolve_zone(selected):
-    """Определяет зону автоматически из результата поиска (stand_dir = cce-prod-st02)."""
+    """Определяет зону автоматически из результата поиска (stand_dir = cce-prod-st02).
+
+    Сначала точное совпадение имени кластера, затем — по коду (st02, tb01, tb04) в конце."""
     cluster = selected.get("stand_dir", "")
-    for z in WORKSPACE_ZONES:
-        if z["cluster"] == cluster:
-            return z
-    # Фолбэк: ищем по коду (st02, tb01, tb04) в конце stand_dir
     code = cluster.rsplit("-", 1)[-1] if cluster else ""
     for z in WORKSPACE_ZONES:
-        if z["code"] == code:
+        if z["cluster"] == cluster or z["code"] == code:
             return z
     return None
+
+# --- Управление пространствами: функции подменю ---
+def _prompt_email(prompt, error_note):
+    email = input(f"  {prompt}: ").strip()
+    if not email or "@" not in email:
+        print_warn(error_note)
+        return None
+    return email
+
+
+def _prompt_dry_run():
+    """Спрашивает режим запуска. True — DRY RUN, False — боевой, None — отмена."""
+    dry = input(f"{action_label()} Режим DRY RUN? ({colorize('yes', CYAN)}/{colorize('no', CYAN)}, по умолчанию yes): ").strip().lower()
+    if dry in ("no", "n"):
+        # Сразу боевой режим — подтверждаем.
+        confirm = input(f"{action_label()} Запустить скрипт в боевом режиме (изменения будут применены)? ({colorize('yes', CYAN)}/{colorize('no', CYAN)}): ").strip().lower()
+        if confirm not in ("yes", "y"):
+            print_warn("Боевой запуск отменён, возврат в меню.")
+            return None
+        return False
+    return True
+
+
+def _run_with_dry_run(zone, script_name, generate, skip_note):
+    """Общий поток: DRY RUN → сохранение скрипта → (опционально) боевой запуск.
+
+    generate(dry_run) возвращает текст скрипта."""
+    dry_run = _prompt_dry_run()
+    if dry_run is None:
+        return
+    open_workspace_exec(zone["code"], generate(dry_run), script_name)
+    if not dry_run:
+        return
+    # После DRY RUN — предлагаем доделать в боевом режиме.
+    print_info("После сверки вывода DRY RUN — запустите боевой режим.")
+    apply_now = input(f"{action_label()} Запустить в боевом режиме сейчас? ({colorize('yes', CYAN)}/{colorize('no', CYAN)}): ").strip().lower()
+    if apply_now in ("yes", "y"):
+        open_workspace_exec(zone["code"], generate(False), script_name)
+    else:
+        print_info(skip_note)
 
 
 def ws_change_owner(selected, zone):
@@ -1285,36 +1330,15 @@ def ws_change_owner(selected, zone):
     if not ids:
         print_warn("Не введено ни одного ID, операция отменена.")
         return
-    email = input("  Email нового владельца: ").strip()
-    if not email or "@" not in email:
-        print_warn("Некорректный email нового владельца, операция отменена.")
+    email = _prompt_email("Email нового владельца", "Некорректный email нового владельца, операция отменена.")
+    if not email:
         return
     ygg, hm = prompt_db_urls(selected, zone)
-
-    dry = input(f"{action_label()} Режим DRY RUN? ({colorize_cyan('yes')}/{colorize_cyan('no')}, по умолчанию yes): ").strip().lower()
-
-    if dry in ("no", "n"):
-        # Сразу боевой режим — подтверждаем.
-        confirm = input(f"{action_label()} Запустить скрипт в боевом режиме (изменения будут применены)? ({colorize_cyan('yes')}/{colorize_cyan('no')}): ").strip().lower()
-        if confirm not in ("yes", "y"):
-            print_warn("Боевой запуск отменён, возврат в меню.")
-            return
-        dry_run = False
-    else:
-        dry_run = True
-
-    script = generate_change_owner_script(ids, email, dry_run, ygg, hm)
-    open_workspace_exec(zone["code"], script, "change_workspace_owner.py")
-
-    # После DRY RUN — предлагаем доделать в боевом режиме.
-    if dry_run:
-        print_info("После сверки вывода DRY RUN — запустите боевой режим.")
-        apply_now = input(f"{action_label()} Запустить в боевом режиме сейчас? ({colorize_cyan('yes')}/{colorize_cyan('no')}): ").strip().lower()
-        if apply_now in ("yes", "y"):
-            script_apply = generate_change_owner_script(ids, email, False, ygg, hm)
-            open_workspace_exec(zone["code"], script_apply, "change_workspace_owner.py")
-        else:
-            print_info("Скрипт с DRY_RUN=True сохранён в exec/. Для боевого запуска повторите операцию.")
+    _run_with_dry_run(
+        zone, "change_workspace_owner.py",
+        lambda dry: generate_change_owner_script(ids, email, dry, ygg, hm),
+        "Скрипт с DRY_RUN=True сохранён в exec/. Для боевого запуска повторите операцию.",
+    )
 
 
 def ws_mass_add(selected, zone):
@@ -1324,7 +1348,7 @@ def ws_mass_add(selected, zone):
         print_warn("Не введено ни одного ID, операция отменена.")
         return
     ygg, hm = prompt_db_urls(selected, zone)
-    confirm = input(f"{action_label()} Запустить в боевом режиме (изменения будут применены)? ({colorize_cyan('yes')}/{colorize_cyan('no')}): ").strip().lower()
+    confirm = input(f"{action_label()} Запустить в боевом режиме (изменения будут применены)? ({colorize('yes', CYAN)}/{colorize('no', CYAN)}): ").strip().lower()
     if confirm not in ("yes", "y"):
         print_warn("Запуск отменён, возврат в меню.")
         return
@@ -1337,36 +1361,33 @@ def ws_add_user(selected, zone):
     if not ids:
         print_warn("Не введено ни одного ID, операция отменена.")
         return
-    email = input("  Email пользователя: ").strip()
-    if not email or "@" not in email:
-        print_warn("Некорректный email, операция отменена.")
+    email = _prompt_email("Email пользователя", "Некорректный email, операция отменена.")
+    if not email:
         return
     ygg, hm = prompt_db_urls(selected, zone)
+    _run_with_dry_run(
+        zone, "add_user_to_workspace.py",
+        lambda dry: generate_add_user_script(ids, email, dry, ygg, hm),
+        "Скрипт с DRY_RUN=True сохранён в exec/.",
+    )
 
-    dry = input(f"{action_label()} Режим DRY RUN? ({colorize_cyan('yes')}/{colorize_cyan('no')}, по умолчанию yes): ").strip().lower()
 
-    if dry in ("no", "n"):
-        # Сразу боевой режим — подтверждаем.
-        confirm = input(f"{action_label()} Запустить скрипт в боевом режиме (изменения будут применены)? ({colorize_cyan('yes')}/{colorize_cyan('no')}): ").strip().lower()
-        if confirm not in ("yes", "y"):
-            print_warn("Боевой запуск отменён, возврат в меню.")
-            return
-        dry_run = False
-    else:
-        dry_run = True
+def ws_add_base_spaces(selected, zone):
+    """Добавляет пользователя в базовые пространства (только стенд demo).
 
-    script = generate_add_user_script(ids, email, dry_run, ygg, hm)
-    open_workspace_exec(zone["code"], script, "add_user_to_workspace.py")
-
-    # После DRY RUN — предлагаем доделать в боевом режиме.
-    if dry_run:
-        print_info("После сверки вывода DRY RUN — запустите боевой режим.")
-        apply_now = input(f"{action_label()} Запустить в боевом режиме сейчас? ({colorize_cyan('yes')}/{colorize_cyan('no')}): ").strip().lower()
-        if apply_now in ("yes", "y"):
-            script_apply = generate_add_user_script(ids, email, False, ygg, hm)
-            open_workspace_exec(zone["code"], script_apply, "add_user_to_workspace.py")
-        else:
-            print_info("Скрипт с DRY_RUN=True сохранён в exec/.")
+    ID пространств и DSN — константы, от пользователя нужен только email."""
+    if (selected.get("cowork_subdomain") or "").lower() != DEMO_STAND_SUBDOMAIN:
+        print_warn(f"Опция доступна только для стенда {DEMO_STAND_SUBDOMAIN} "
+                   f"(текущий: {selected.get('cowork_subdomain') or 'не определён'}).")
+        return
+    email = _prompt_email("Email пользователя", "Некорректный email, операция отменена.")
+    if not email:
+        return
+    _run_with_dry_run(
+        zone, "add_user_to_base_workspaces.py",
+        lambda dry: generate_add_user_script(BASE_WORKSPACE_IDS, email, dry, DEMO_YGGDRASIL_URL, DEMO_HEIMDALL_URL),
+        "Скрипт с DRY_RUN=True сохранён в exec/.",
+    )
 
 
 def ws_list_workspaces(selected, zone):
@@ -1374,51 +1395,120 @@ def ws_list_workspaces(selected, zone):
     script = generate_list_workspaces_script(ygg)
     open_workspace_exec(zone["code"], script, "list_workspaces.py")
 
+# --- Меню ---
+_WS_ACTIONS = {
+    "1": ws_change_owner,
+    "2": ws_add_user,
+    "3": ws_mass_add,
+    "4": ws_list_workspaces,
+    "5": ws_add_base_spaces,
+}
+
 
 def workspace_menu(selected):
+    # Пункт 5 виден только на стенде demo — для остальных стендов меню короче.
+    is_demo = (selected.get("cowork_subdomain") or "").lower() == DEMO_STAND_SUBDOMAIN
+    actions = dict(_WS_ACTIONS)
+    if not is_demo:
+        actions.pop("5")
     while True:
         print_action("Управление пространствами")
         print("  1. Сменить владельца пространства")
         print("  2. Добавить пользователя в пространство")
         print("  3. Массовое добавление в пространство")
         print("  4. Показать все пространства на стенде")
+        if is_demo:
+            print("  5. Добавить базовые пространства")
         print("  0. Назад")
         choice = input_with_timeout("Выберите функцию: ", 60)
         if choice is None:
             break
         choice = choice.strip()
-        if choice == '0':
+        if choice == "0":
             break
-        elif choice == '1':
-            zone = resolve_zone(selected)
-            if zone:
-                ws_change_owner(selected, zone)
-            else:
-                print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
-        elif choice == '2':
-            zone = resolve_zone(selected)
-            if zone:
-                ws_add_user(selected, zone)
-            else:
-                print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
-        elif choice == '3':
-            zone = resolve_zone(selected)
-            if zone:
-                ws_mass_add(selected, zone)
-            else:
-                print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
-        elif choice == '4':
-            zone = resolve_zone(selected)
-            if zone:
-                ws_list_workspaces(selected, zone)
-            else:
-                print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
-        else:
+        handler = actions.get(choice)
+        if handler is None:
             print_warn("Неверный ввод.")
+            continue
+        zone = resolve_zone(selected)
+        if zone:
+            handler(selected, zone)
+        else:
+            print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
+
+
+def stand_action_menu(selected, script_dir):
+    while True:
+        print_action("Выбрать действие")
+        print("  1. Открыть Admin Helper и ArgoCD")
+        print("  2. Зайти на тенант")
+        print("  3. Открыть консоль тенантов")
+        print("  4. Запустить FAQ-агента")
+        print("  5. Открыть конфигурацию стенда")
+        print("  6. Управление пространствами")
+        print("  0. Вернуться к поиску")
+        print()
+        action = input_with_timeout("Выберите действие (0-6): ", 300)
+        if action is None:
+            print_warn("Таймаут ожидания. Возврат к поиску.")
+            break
+        action = action.strip()
+        if action == "0":
+            break
+        elif action == "1":
+            open_links(selected, script_dir)
+        elif action == "2":
+            open_tenant(selected)
+        elif action == "3":
+            open_tenant_console()
+        elif action == "4":
+            open_faq_agent()
+        elif action == "5":
+            open_stand_config(selected)
+        elif action == "6":
+            workspace_menu(selected)
+        else:
+            print_warn("Неверный ввод, попробуйте снова.")
+
+# --- Точка входа ---
+def _init_zones(repo_root):
+    if not ZONES_CONFIG_FILE.exists():
+        zones = discover_and_save_zones(repo_root)
+        print_info(f"Создан файл zones_config.json с {len(zones)} кластерами.")
+    else:
+        zones = load_zones()
+        check_and_update_zones(repo_root, zones)
+    return zones
+
+
+def _verify_zones(repo_root, zones):
+    missing = [z for z in zones if not (repo_root / z["path"]).exists()]
+    for zone in missing:
+        print_error(f"Кластер {zone['label']} не найден!")
+    if missing:
+        print_error("Ошибка: некоторые зоны не найдены. Продолжение невозможно.")
+        sys.exit(1)
+
+
+def _prompt_search_criteria():
+    print("\n" + "=" * 50)
+    print("Введите критерии поиска (можно оставить пустым, но хотя бы одно поле):")
+    subdomain = input("  cowork_subdomain: ").strip()
+    email = input("  email: ").strip()
+    inn = input("  ИНН: ").strip()
+    stand_name = input("  stand_name: ").strip()
+    if not any((subdomain, email, inn, stand_name)):
+        print_warn("Ошибка: необходимо заполнить хотя бы одно поле.")
+        return None
+    return {
+        "subdomain": subdomain or None,
+        "email": email or None,
+        "inn": inn or None,
+        "stand_name": stand_name or None,
+    }
 
 
 def main():
-    global zones_global
     print_logo()
     script_dir = Path(__file__).parent.resolve()
     try:
@@ -1427,97 +1517,26 @@ def main():
         print_error(str(e))
         sys.exit(1)
 
-    news_dir = script_dir / "news"
-    pull_repo(repo_root, news_dir)
-
-    # Загрузка или автоматическое создание конфигурации зон
-    if not ZONES_CONFIG_FILE.exists():
-        zones_global = discover_and_save_zones(repo_root)
-        print_info(f"Создан файл zones_config.json с {len(zones_global)} кластерами.")
-    else:
-        zones_global = load_zones()
-        check_and_update_zones(repo_root, zones_global)
-
-    all_found = True
-    for zone in zones_global:
-        full_path = repo_root / zone["path"]
-        if not full_path.exists():
-            print_error(f"Кластер {zone['label']} не найден!")
-            all_found = False
-    if not all_found:
-        print_error("Ошибка: некоторые зоны не найдены. Продолжение невозможно.")
-        sys.exit(1)
+    pull_repo(repo_root, script_dir / "news")
+    zones = _init_zones(repo_root)
+    _verify_zones(repo_root, zones)
 
     while True:
-        print("\n" + "=" * 50)
-        print("Введите критерии поиска (можно оставить пустым, но хотя бы одно поле):")
-        subdomain = input("  cowork_subdomain: ").strip()
-        email = input("  email: ").strip()
-        inn = input("  ИНН: ").strip()
-        stand_name = input("  stand_name: ").strip()
-        if not any([subdomain, email, inn, stand_name]):
-            print_warn("Ошибка: необходимо заполнить хотя бы одно поле.")
+        criteria = _prompt_search_criteria()
+        if criteria is None:
             continue
-
-        criteria = {'subdomain': subdomain if subdomain else None,
-                    'email': email if email else None,
-                    'inn': inn if inn else None,
-                    'stand_name': stand_name if stand_name else None}
-
-        results = find_stands(repo_root, criteria)
+        results = find_stands(repo_root, zones, criteria)
         if not results:
             print_warn("Не найдено стендов, соответствующих критериям.")
             continue
-
         print_info(f"Найдено {len(results)} стендов:")
         for idx, data in enumerate(results, 1):
-            print(f"\n{idx}. Папка: {data.get('folder', 'N/A')}")
-            print(f"   Расположение: {data.get('stand_dir', 'N/A')}")
-            print(f"   stand_name: {data.get('stand_name', 'N/A')}")
-            print(f"   cowork_subdomain: {data.get('cowork_subdomain', 'N/A')}")
-            print(f"   admin_email: {data.get('admin_email', 'N/A')}")
-            print(f"   ИНН: {data.get('inn', 'N/A')}")
-            print(f"   expiry_date: {data.get('expiry_date', 'N/A')}")
-            print(f"   cowork_revision: {data.get('cowork_revision', 'N/A')}")
-            if data.get('broken'):
-                print("   [broken stand]")
-
+            _print_stand(idx, data)
         selected = select_stand(results)
         if selected is None:
             continue
+        stand_action_menu(selected, script_dir)
 
-        while True:
-            print_action("Выбрать действие")
-            print("  1. Открыть Admin Helper и ArgoCD")
-            print("  2. Зайти на тенант")
-            print("  3. Открыть консоль тенантов")
-            print("  4. Запустить FAQ-агента")
-            print("  5. Открыть конфигурацию стенда")
-            print("  6. Управление пространствами")
-            print("  0. Вернуться к поиску")
-            print()
-            action = input_with_timeout("Выберите действие (0-6): ", 60)
-            if action is None:
-                print_warn("Таймаут ожидания. Возврат к поиску.")
-                break
-            action = action.strip()
-            if action == '0':
-                break
-            elif action == '1':
-                open_links(selected, script_dir)
-            elif action == '2':
-                open_tenant(selected)
-            elif action == '3':
-                open_tenant_console()
-            elif action == '4':
-                open_faq_agent()
-            elif action == '5':
-                open_stand_config(selected)
-            elif action == '6':
-                workspace_menu(selected)
-            else:
-                print_warn("Неверный ввод, попробуйте снова.")
 
 if __name__ == "__main__":
-    zones_global = []
     main()
