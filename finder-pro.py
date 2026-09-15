@@ -19,10 +19,11 @@ from datetime import datetime
 from pathlib import Path
 
 # --- Версия ---
-VERSION = "v2.1.0"
+VERSION = "v2.3.0"
 
 # --- Пути и константы ---
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
+DSN_CACHE_PATH = Path.home() / ".gigafinder" / "dsn-cache.json"
 FAQ_AGENT_URL = "https://cowork.gigab2b.ru/workspaces/c63c8b9f-bdf0-4805-a314-b8da3eaeaea7"
 CONFIG = "config.yaml"
 ZONES_DIR = Path(__file__).parent / "zones"
@@ -488,7 +489,7 @@ def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
 
 async def resolve_user_id(connection: asyncpg.Connection, email: str) -> str:
     user_id = await connection.fetchval(
-        "SELECT id::text FROM users WHERE email = $1", email
+        "SELECT id::text FROM users WHERE lower(email) = lower($1)", email
     )
     if user_id is None:
         raise ValueError(f"Пользователь {email} не найден в users (yggdrasil)")
@@ -897,7 +898,7 @@ if __name__ == "__main__":
 _ADD_USER_TEMPLATE = '''import asyncio
 import os
 import sys
-
+from datetime import datetime, timezone
 import asyncpg
 
 MEMBER_ROLE_ID = "workspace.member"
@@ -906,7 +907,9 @@ WORKSPACE_NAMESPACE = "workspace"
 WORKSPACE_IDS = [
 __IDS__
 ]
-USER_EMAIL = __EMAIL__
+USER_EMAILS = [
+__EMAILS__
+]
 # True — только показать, что будет сделано, ничего не менять
 DRY_RUN = __DRY__
 
@@ -924,7 +927,7 @@ def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
 
 async def resolve_user_id(connection: asyncpg.Connection, email: str) -> str:
     user_id = await connection.fetchval(
-        "SELECT id::text FROM users WHERE email = $1", email
+        "SELECT id::text FROM users WHERE lower(email) = lower($1)", email
     )
     if user_id is None:
         raise ValueError(f"Пользователь {email} не найден в users (yggdrasil)")
@@ -974,6 +977,30 @@ async def get_grant(
     )
 
 
+async def get_invite_status(heimdall_connection: asyncpg.Connection, email: str) -> str:
+    row = await heimdall_connection.fetchrow(
+        """
+        SELECT status, expires_at
+        FROM invite_tokens
+        WHERE email_normalized = $1
+        ORDER BY updated_at DESC
+        LIMIT 1
+        """,
+        email.lower(),
+    )
+    if row is None:
+        return "пользователь не приглашён"
+    now = datetime.now(timezone.utc)
+    expires_at = row["expires_at"]
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if row["status"] == "pending" and expires_at > now:
+        return f"приглашение отправлено, не принято, ссылка живёт до {expires_at:%Y-%m-%d %H:%M} UTC"
+    if expires_at <= now:
+        return f"ссылка истекла {expires_at:%Y-%m-%d %H:%M} UTC, нужно перевыслать приглашение"
+    return f"токен в статусе {row['status']}, пользователя в провайдере нет"
+
+
 async def add_member(
     yggdrasil_connection: asyncpg.Connection,
     heimdall_connection: asyncpg.Connection,
@@ -1018,55 +1045,82 @@ async def main() -> None:
     if not WORKSPACE_IDS:
         print("ERROR: заполните WORKSPACE_IDS")
         sys.exit(2)
-    if not USER_EMAIL or "@" not in USER_EMAIL:
-        print("ERROR: заполните USER_EMAIL")
+    if not USER_EMAILS or any("@" not in email for email in USER_EMAILS):
+        print("ERROR: заполните USER_EMAILS (список email)")
         sys.exit(2)
 
     yggdrasil_connection = await asyncpg.connect(yggdrasil_url)
     heimdall_connection = await asyncpg.connect(heimdall_url)
     try:
-        user_id = await resolve_user_id(yggdrasil_connection, USER_EMAIL)
-        print(f"пользователь: {USER_EMAIL} (user_id={user_id})")
+        print(f"пользователи: {', '.join(USER_EMAILS)}")
         print(f"режим: {'DRY RUN — ничего не будет изменено' if DRY_RUN else 'APPLY'}")
         print()
 
-        failed = 0
+        added = 0
+        already = 0
+        planned = 0
+        ws_errors = 0
+        missing = []
         for workspace_id in WORKSPACE_IDS:
             try:
                 ws = await get_workspace_state(yggdrasil_connection, workspace_id)
             except ValueError as error:
                 print(f"[SKIP] workspace_id={workspace_id}: {error}")
-                failed += 1
+                ws_errors += 1
                 continue
-
-            existing_role = await get_member_role(yggdrasil_connection, workspace_id, user_id)
-            existing_grant = await get_grant(heimdall_connection, user_id, workspace_id)
 
             print(f"workspace_id={workspace_id} name={ws['name']!r} type={ws['type']}")
-            print(f"  пользователь: user_id={user_id} ({USER_EMAIL})")
-            print(f"    yggdrasil role={existing_role}, heimdall grant={existing_grant}")
 
-            if existing_role == MEMBER_ROLE_ID and existing_grant == MEMBER_ROLE_ID:
-                print("  [SKIP] пользователь уже участник с ролью member")
+            for email in USER_EMAILS:
+                try:
+                    user_id = await resolve_user_id(yggdrasil_connection, email)
+                except ValueError as error:
+                    print(f"  [SKIP] {email}: {error}")
+                    if email not in missing:
+                        missing.append(email)
+                    continue
+
+                existing_role = await get_member_role(yggdrasil_connection, workspace_id, user_id)
+                existing_grant = await get_grant(heimdall_connection, user_id, workspace_id)
+
+                print(f"  пользователь: user_id={user_id} ({email})")
+                print(f"    yggdrasil role={existing_role}, heimdall grant={existing_grant}")
+
+                if existing_role == MEMBER_ROLE_ID and existing_grant == MEMBER_ROLE_ID:
+                    print("  [SKIP] пользователь уже участник с ролью member")
+                    already += 1
+                    print()
+                    continue
+
+                if DRY_RUN:
+                    print("  план: добавить в workspace_members, workspace_favorites, access_grants (role=member)")
+                    print("  DRY RUN: изменения не применены")
+                    planned += 1
+                    print()
+                    continue
+
+                async with yggdrasil_connection.transaction(), heimdall_connection.transaction():
+                    await add_member(
+                        yggdrasil_connection, heimdall_connection,
+                        workspace_id, user_id,
+                    )
+                print("  [OK] пользователь добавлен в пространство")
+                added += 1
                 print()
-                continue
 
-            if DRY_RUN:
-                print("  план: добавить в workspace_members, workspace_favorites, access_grants (role=member)")
-                print("  DRY RUN: изменения не применены")
-                print()
-                continue
-
-            async with yggdrasil_connection.transaction(), heimdall_connection.transaction():
-                await add_member(
-                    yggdrasil_connection, heimdall_connection,
-                    workspace_id, user_id,
-                )
-            print("  [OK] пользователь добавлен в пространство")
-            print()
-
-        print(f"итого: обработано={len(WORKSPACE_IDS) - failed} skipped/failed={failed}")
-        if failed:
+        if DRY_RUN:
+            print(f"итого: пространств={len(WORKSPACE_IDS)}, к добавлению={planned}, уже участники={already}, ошибок пространств={ws_errors}")
+        else:
+            print(f"итого: пространств={len(WORKSPACE_IDS)}, добавлено={added}, уже участники={already}, ошибок пространств={ws_errors}")
+        if missing:
+            print(f"не найдено пользователей={len(missing)}: {', '.join(missing)}")
+            for email in missing:
+                try:
+                    status = await get_invite_status(heimdall_connection, email)
+                except Exception as error:
+                    status = f"статус приглашения не удалось определить ({error})"
+                print(f"  {email}: {status}")
+        if ws_errors or missing:
             sys.exit(1)
     finally:
         await yggdrasil_connection.close()
@@ -1148,10 +1202,11 @@ def generate_mass_add_script(workspace_ids, ygg_url, hm_url):
             .replace("__HM__", json.dumps(hm_url)))
 
 
-def generate_add_user_script(workspace_ids, user_email, dry_run, ygg_url, hm_url):
+def generate_add_user_script(workspace_ids, user_emails, dry_run, ygg_url, hm_url):
+    emails_block = ",\n".join(f'    {json.dumps(e)}' for e in user_emails)
     return (_ADD_USER_TEMPLATE
             .replace("__IDS__", _ids_block(workspace_ids))
-            .replace("__EMAIL__", json.dumps(user_email))
+            .replace("__EMAILS__", emails_block)
             .replace("__DRY__", "True" if dry_run else "False")
             .replace("__YGG__", json.dumps(ygg_url))
             .replace("__HM__", json.dumps(hm_url)))
@@ -1188,9 +1243,25 @@ def open_workspace_exec(zone_code, script_content, script_name):
     out = EXEC_DIR / script_name
     out.write_text(script_content, encoding="utf-8")
     print_info(f"Скрипт сохранён: {out}")
+    _ensure_py_alias_hint()
     webbrowser.open(f"{_argocd_base(zone_code)}/applications/{ARGOCD_APP}?resource=")
     print_info(f"В списке приложения выберите под {DEBUG_POD_PREFIX}* (вкладка exec), "
-               f"скопируйте содержимое {script_name} в веб-терминал и запустите: python3 {script_name}")
+               f"скопируйте содержимое {script_name} в веб-терминал и запустите: py {script_name}")
+
+
+def _ensure_py_alias_hint():
+    """Одноразовая подсказка: создать симлинк py -> python3 в debug-пode."""
+    flag = DSN_CACHE_PATH.parent / "py-alias-hint-shown"
+    if flag.exists():
+        return
+    print_info("Одноразовая настройка: чтобы запускать скрипты командой py, выполните в поде debug-ubuntu:")
+    print_info(colorize('ln -sf "$(command -v python3)" /usr/local/bin/py', CYAN))
+    input(f"{action_label()} Выполните команду в поде, затем нажмите Enter (при рестарте пода команду нужно повторить): ")
+    try:
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text(datetime.now().isoformat(), encoding="utf-8")
+    except OSError:
+        pass
 
 # --- Управление пространствами: ввод параметров ---
 def prompt_workspace_ids():
@@ -1251,9 +1322,41 @@ def _resolve_db_url(raw, user, host, db, folder, var_name):
     return url
 
 
+def _load_dsn_cache():
+    try:
+        with open(DSN_CACHE_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_dsn_cache(cache):
+    try:
+        DSN_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(DSN_CACHE_PATH, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+    except OSError as error:
+        print_warn(f"Не удалось сохранить кэш DSN: {error}")
+
+
 def prompt_db_urls(selected, zone, need_heimdall=True):
     folder = selected.get("folder", "")
     stand_name = selected.get("stand_name") or folder
+
+    cache = _load_dsn_cache()
+    cached = cache.get(folder) or {}
+    cached_ygg = cached.get("yggdrasil")
+    cached_hm = cached.get("heimdall")
+    if cached_ygg and (not need_heimdall or cached_hm):
+        saved_at = cached.get("saved_at", "дата неизвестна")
+        print_info(f"Найден кэш DSN для стенда {folder} (сохранён {saved_at}).")
+        choice = input(f"{action_label()} Enter — использовать из кэша, d — ввести заново: ").strip().lower()
+        if choice != "d":
+            ygg = cached_ygg
+            hm = cached_hm if need_heimdall else None
+            print_info(f"Использую DSN из кэша для стенда {folder}.")
+            return ygg, hm
 
     print_info("Открываю приложение yggdrasil в ArgoCD — скопируйте YGGDRASIL_DATABASE_URL.")
     open_pod_exec(zone["code"], stand_name, "yggdrasil")
@@ -1269,6 +1372,15 @@ def prompt_db_urls(selected, zone, need_heimdall=True):
     hm = None
     if need_heimdall:
         hm = _resolve_db_url(hm_raw, "heimdall_auth", "heimdall-auth-postgres-rw", "heimdall_auth", folder, "HEIMDALL_DATABASE_URL")
+
+    # Сохраняем в кэш только распознанные DSN (без шаблонов с <ПАРОЛЬ>)
+    if "<ПАРОЛЬ>" not in ygg and "<ПАРОЛЬ>" not in (hm or ""):
+        entry = {"yggdrasil": ygg, "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M")}
+        if need_heimdall:
+            entry["heimdall"] = hm
+        cache[folder] = entry
+        _save_dsn_cache(cache)
+        print_info(f"DSN сохранены в кэш ({DSN_CACHE_PATH}) — в следующий раз вводить не придётся.")
 
     return ygg, hm
 
@@ -1293,17 +1405,25 @@ def _prompt_email(prompt, error_note):
     return email
 
 
+def _prompt_emails(prompt, error_note):
+    """Список email через запятую (один email — тоже работает)."""
+    raw = input(f"  {prompt}: ").strip()
+    emails = [x.strip() for x in re.split(r"[,\s]+", raw) if x.strip()]
+    if not emails or any("@" not in e for e in emails):
+        print_warn(error_note)
+        return None
+    return emails
+
+
 def _prompt_dry_run():
     """Спрашивает режим запуска. True — DRY RUN, False — боевой, None — отмена."""
-    dry = input(f"{action_label()} Режим DRY RUN? ({colorize('yes', CYAN)}/{colorize('no', CYAN)}, по умолчанию yes): ").strip().lower()
-    if dry in ("no", "n"):
-        # Сразу боевой режим — подтверждаем.
-        confirm = input(f"{action_label()} Запустить скрипт в боевом режиме (изменения будут применены)? ({colorize('yes', CYAN)}/{colorize('no', CYAN)}): ").strip().lower()
-        if confirm not in ("yes", "y"):
-            print_warn("Боевой запуск отменён, возврат в меню.")
-            return None
+    choice = input(f"{action_label()} Режим DRY RUN (1) / Запустить скрипт в боевом режиме (2)? (1/{colorize('2', CYAN)}, по умолчанию 1): ").strip().lower()
+    if choice in ("", "1"):
+        return True
+    if choice == "2":
         return False
-    return True
+    print_warn("Непонятный ответ, операция отменена.")
+    return None
 
 
 def _run_with_dry_run(zone, script_name, generate, skip_note):
@@ -1361,31 +1481,31 @@ def ws_add_user(selected, zone):
     if not ids:
         print_warn("Не введено ни одного ID, операция отменена.")
         return
-    email = _prompt_email("Email пользователя", "Некорректный email, операция отменена.")
-    if not email:
+    emails = _prompt_emails("Email пользователей (через запятую)", "Некорректный email, операция отменена.")
+    if not emails:
         return
     ygg, hm = prompt_db_urls(selected, zone)
     _run_with_dry_run(
         zone, "add_user_to_workspace.py",
-        lambda dry: generate_add_user_script(ids, email, dry, ygg, hm),
+        lambda dry: generate_add_user_script(ids, emails, dry, ygg, hm),
         "Скрипт с DRY_RUN=True сохранён в exec/.",
     )
 
 
 def ws_add_base_spaces(selected, zone):
-    """Добавляет пользователя в базовые пространства (только стенд demo).
+    """Добавляет пользователей в базовые пространства (только стенд demo).
 
-    ID пространств и DSN — константы, от пользователя нужен только email."""
+    ID пространств и DSN — константы, от пользователя нужен только email (можно несколько)."""
     if (selected.get("cowork_subdomain") or "").lower() != DEMO_STAND_SUBDOMAIN:
         print_warn(f"Опция доступна только для стенда {DEMO_STAND_SUBDOMAIN} "
                    f"(текущий: {selected.get('cowork_subdomain') or 'не определён'}).")
         return
-    email = _prompt_email("Email пользователя", "Некорректный email, операция отменена.")
-    if not email:
+    emails = _prompt_emails("Email пользователей (через запятую)", "Некорректный email, операция отменена.")
+    if not emails:
         return
     _run_with_dry_run(
         zone, "add_user_to_base_workspaces.py",
-        lambda dry: generate_add_user_script(BASE_WORKSPACE_IDS, email, dry, DEMO_YGGDRASIL_URL, DEMO_HEIMDALL_URL),
+        lambda dry: generate_add_user_script(BASE_WORKSPACE_IDS, emails, dry, DEMO_YGGDRASIL_URL, DEMO_HEIMDALL_URL),
         "Скрипт с DRY_RUN=True сохранён в exec/.",
     )
 
