@@ -17,9 +17,47 @@ import time
 import webbrowser
 from datetime import datetime
 from pathlib import Path
+# --- Runtime mode: Windows / WSL ---
+RUNTIME_MODE = None
+def select_runtime_mode():
+    global RUNTIME_MODE
+    print()
+    print("Выберите среду запуска:")
+    print("  1. Windows")
+    print("  2. WSL")
+    while True:
+        choice = input("Среда [1/2]: ").strip()
+        if choice == "1":
+            RUNTIME_MODE = "windows"
+            print_info("Выбрана среда: Windows")
+            return
+        if choice == "2":
+            RUNTIME_MODE = "wsl"
+            print_info("Выбрана среда: WSL")
+            return
+        print_warn("Введите 1 для Windows или 2 для WSL.")
+def open_url(url):
+    """Открывает URL в браузере (Windows — webbrowser, WSL — через cmd.exe)."""
+    if RUNTIME_MODE == "wsl":
+        subprocess.run(f'cmd.exe /c start "" "{url}"', shell=True)
+    else:
+        webbrowser.open(url)
+def open_file(path):
+    """Открывает локальный файл (Windows — webbrowser, WSL — wslpath + cmd.exe)."""
+    if RUNTIME_MODE == "wsl":
+        win_path = subprocess.run(
+            ["wslpath", "-w", path],
+            capture_output=True, text=True, check=True
+        ).stdout.strip()
+        subprocess.run(
+            ["cmd.exe", "/c", "start", "", win_path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    else:
+        webbrowser.open(Path(path).resolve().as_uri())
 
 # --- Версия ---
-VERSION = "v2.3.0"
+VERSION = "v2.7.0"
 
 # --- Пути и константы ---
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
@@ -30,20 +68,34 @@ ZONES_DIR = Path(__file__).parent / "zones"
 ZONES_CONFIG_FILE = ZONES_DIR / "zones_config.json"
 EXEC_DIR = Path(__file__).parent / "exec"
 
-# Зоны подменю «Управление пространствами».
 # code — суффикс ArgoCD (argocd-<code>.cowork.ru); cluster — имя кластера в репозитории.
 WORKSPACE_ZONES = [
     {"code": "st02", "cluster": "cce-prod-st02"},
     {"code": "tb01", "cluster": "cce-prod-tb01"},
+    {"code": "sdb-tb01", "cluster": "cce-sdb-tb01-stands"},
     {"code": "tb04", "cluster": "cce-prod-tb04"},
 ]
+# code ArgoCD берётся из url; label используется как stand_dir в результатах поиска.
+EXTRA_ZONES = [
+    {
+        "path": "cce-sdb-tb01/cowork/stands",
+        "label": "cce-sdb-tb01-stands",
+        "url": "https://argocd-sdb-tb01.cowork.ru/applications/cowork/{folder}?resource=",
+        "stand_prefixes": ("sber-", "cowork"),
+    },
+]
+# Белый список: finder читает в репозитории ТОЛЬКО эти корневые папки.
+ALLOWED_REPO_DIRS = ("cce-prod", "cce-prod-tb01", "cce-sdb-tb01")
+def _zone_path_allowed(path):
+    """Проверка, что путь зоны лежит внутри одной из ALLOWED_REPO_DIRS."""
+    top = path.split("/", 1)[0]
+    return top in ALLOWED_REPO_DIRS
 # Имя приложения ArgoCD, в котором живёт управляющий под debug-ubuntu.
 ARGOCD_APP = "cowork/cowork"
 # Подстрока имени пода управляющего контейнера.
 DEBUG_POD_PREFIX = "debug-ubuntu"
 
 # --- Базовые пространства (опция 5 подменю, только стенд demo) ---
-# ID базовых пространств, доступ к которым выдаётся пользователю одним скриптом.
 BASE_WORKSPACE_IDS = [
     "f7a1d8cc-63d8-4063-a9b0-345cad57b5d6",
     "f4d1b8a9-12b2-4cd8-af5c-3d03b459d24e",
@@ -183,6 +235,12 @@ def load_zones():
         return []
     if not isinstance(zones, list):
         return []
+    # Защита: из конфига берём только зоны в допустимых корневых папках.
+    zones = [z for z in zones if isinstance(z, dict) and _zone_path_allowed(z.get("path", ""))]
+    # JSON хранит кортежи как списки — приводим stand_prefixes к tuple.
+    for zone in zones:
+        if "stand_prefixes" in zone:
+            zone["stand_prefixes"] = tuple(zone["stand_prefixes"])
     # Автокоррекция URL, если ранее был создан файл с багом.
     corrected = False
     for zone in zones:
@@ -219,16 +277,58 @@ def get_remote_clusters(repo_root):
 
 def discover_and_save_zones(repo_root):
     zones = [make_zone_from_cluster(c) for c in get_remote_clusters(repo_root)]
+    zones += [dict(z) for z in EXTRA_ZONES if _zone_path_allowed(z["path"])]
     save_zones(zones)
     return zones
 
 
 def check_and_update_zones(repo_root, zones):
     remote_clusters = get_remote_clusters(repo_root)
+    # Устаревшие зоны (больше не актуальны): убираем из конфига до проверки доступности.
+    allowed_paths = {f"cce-prod/cowork/clusters/{c}" for c in remote_clusters}
+    allowed_paths |= {z["path"] for z in EXTRA_ZONES}
+    stale = [z for z in zones if z["path"] not in allowed_paths]
+    if stale:
+        zones[:] = [z for z in zones if z["path"] in allowed_paths]
+        save_zones(zones)
+        for z in stale:
+            print_info(f"Удалена устаревшая зона из конфигурации: {z['label']}.")
     known = {z["path"].split("/")[-1] for z in zones}
     for zone in zones:
-        if zone["path"].split("/")[-1] not in remote_clusters:
-            print_error(f"Кластер {zone['label']} не доступен.")
+        if zone["path"].startswith("cce-prod/cowork/clusters/"):
+            if zone["path"].split("/")[-1] not in remote_clusters:
+                print_error(f"Кластер {zone['label']} не доступен.")
+        elif not (repo_root / zone["path"]).exists():
+            print_error(f"Зона {zone['label']} не доступна (папка {zone['path']}).")
+    # Нестандартные зоны: добавляем в конфиг, если их ещё нет,
+    # либо синхронизируем поля (например, stand_prefixes), если они изменились.
+    known_paths = {z["path"] for z in zones}
+    for extra in EXTRA_ZONES:
+        if not _zone_path_allowed(extra["path"]):
+            print_error(f"Зона {extra['label']} пропущена: путь вне {ALLOWED_REPO_DIRS}.")
+            continue
+        if extra["path"] not in known_paths:
+            zones.append(dict(extra))
+            save_zones(zones)
+            print_info(f"Добавлена зона: {extra['label']} ({extra['path']}).")
+        else:
+            for zone in zones:
+                if zone["path"] != extra["path"]:
+                    continue
+                # JSON хранит кортежи как списки — нормализуем перед сравнением.
+                norm_zone = dict(zone)
+                norm_extra = dict(extra)
+                for key in ("stand_prefixes",):
+                    if key in norm_zone:
+                        norm_zone[key] = tuple(norm_zone[key])
+                    if key in norm_extra:
+                        norm_extra[key] = tuple(norm_extra[key])
+                if norm_zone != norm_extra:
+                    zones[zones.index(zone)] = dict(extra)
+                    save_zones(zones)
+                    print_info(f"Обновлена зона: {extra['label']} ({extra['path']}).")
+                break
+
     updated = False
     for cluster in (c for c in remote_clusters if c not in known):
         print_warn(f"Обнаружен новый кластер: {cluster}")
@@ -283,12 +383,13 @@ def _extract_subdomain(config_path):
 def _report_changes(repo_root, news_dir, head_before, head_after):
     diff_stat = _git(repo_root, "diff", "--stat", head_before, head_after).stdout
     diff_full = _git(repo_root, "diff", head_before, head_after).stdout
+    saved_path = None
     if diff_full:
         news_dir.mkdir(parents=True, exist_ok=True)
         now = datetime.now()
         fname = f"changes_{now.strftime('%Y%m%d_%H%M%S')}.txt"
-        (news_dir / fname).write_text(f"Изменения от {now}\n{'=' * 40}\n{diff_full}", encoding="utf-8")
-        print_info(f"Полные изменения сохранены в {news_dir / fname}")
+        saved_path = news_dir / fname
+        (saved_path).write_text(f"Изменения от {now}\n{'=' * 40}\n{diff_full}", encoding="utf-8")
     if diff_stat:
         files = _git(repo_root, "diff", "--name-only", head_before, head_after).stdout.strip().split("\n")
         print_info("Изменённые файлы (cowork_subdomain):")
@@ -297,9 +398,12 @@ def _report_changes(repo_root, news_dir, head_before, head_after):
                 print(f"  {f} ({colorize(_extract_subdomain(repo_root / f), YELLOW)})")
     else:
         print_warn("Изменения затянуты, но статистика пуста.")
+    if saved_path:
+        print_info(f"Полные изменения сохранены в {saved_path}")
 
 
 def pull_repo(repo_root, news_dir):
+    """git fetch + pull. Возвращает (remote_url, head_before, head_after) для отчёта."""
     stop_event = threading.Event()
     spinner = threading.Thread(target=animate_spinner, args=(stop_event,), daemon=True)
     spinner.start()
@@ -328,14 +432,19 @@ def pull_repo(repo_root, news_dir):
         if remote_url:
             print_info(f"Удалённый репозиторий: {remote_url}")
 
-        if head_before and head_after and head_before != head_after:
-            _report_changes(repo_root, news_dir, head_before, head_after)
-        else:
-            print_info("Новых изменений нет.")
+        return remote_url, head_before, head_after
     except Exception as e:
         _stop_spinner(stop_event, spinner)
         print_error(str(e))
         sys.exit(1)
+
+
+def report_pull(repo_root, news_dir, remote_url, head_before, head_after):
+    """Отчёт о результате pull — вызывается после самопроверки зон."""
+    if head_before and head_after and head_before != head_after:
+        _report_changes(repo_root, news_dir, head_before, head_after)
+    else:
+        print_info("Новых изменений нет.")
 
 # --- Поиск стендов ---
 _CONFIG_KEYS = ("stand_name", "cowork_subdomain", "admin_email", "expiry_date", "cowork_revision")
@@ -374,15 +483,17 @@ def find_stands(root, zones, criteria):
         base = root / zone["path"]
         if not base.exists():
             continue
+        stand_prefixes = tuple(zone.get("stand_prefixes", ("cowork-",)))
         for config_path in base.rglob(CONFIG):
             stand_dir = config_path.parent
-            if not stand_dir.name.startswith("cowork-"):
+            if not stand_dir.name.startswith(stand_prefixes):
                 continue
             data = read_config(config_path)
             if not _matches(data, criteria):
                 continue
             data["folder"] = stand_dir.name
             data["stand_dir"] = zone["label"]
+            data["zone_path"] = zone["path"]
             data["url_template"] = zone["url"]
             data["config_path"] = config_path
             results.append(data)
@@ -422,11 +533,11 @@ def select_stand(results):
 def open_links(selected, script_dir):
     helper = script_dir / "admin-helper-new.html"
     if helper.exists():
-        webbrowser.open(str(helper))
+        open_file(str(helper))
     else:
         print_warn("admin-helper-new.html не найден.")
     url = selected['url_template'].format(folder=selected['folder'])
-    webbrowser.open(url)
+    open_url(url)
 
 
 def open_tenant(selected):
@@ -434,25 +545,25 @@ def open_tenant(selected):
     if not subdomain:
         print_warn("Не указан cowork_subdomain, невозможно открыть тенант.")
         return
-    webbrowser.open(f"https://{subdomain}.cowork.ru")
+    open_url(f"https://{subdomain}.cowork.ru")
 
 
 def open_tenant_console():
-    webbrowser.open("https://tenant-console.cowork.ru/")
+    open_url("https://tenant-console.cowork.ru/")
 
 
 def open_faq_agent():
-    webbrowser.open(FAQ_AGENT_URL)
+    open_url(FAQ_AGENT_URL)
 
 
 def open_stand_config(selected):
-    base_url = "https://git.sberdevices.ru/gigabb/infra/cowork/argocd/-/tree/master/cce-prod/cowork/clusters"
-    cluster = selected.get('stand_dir')
+    base_url = "https://git.sberdevices.ru/gigabb/infra/cowork/argocd/-/tree/master"
+    zone_path = selected.get('zone_path')
     folder = selected.get('folder')
-    if not cluster or not folder:
+    if not zone_path or not folder:
         print_warn("Не удалось определить путь к конфигурации стенда.")
         return
-    webbrowser.open(f"{base_url}/{cluster}/{folder}?ref_type=heads")
+    open_url(f"{base_url}/{zone_path}/{folder}?ref_type=heads")
 
 # --- Управление пространствами: шаблоны сгенерированных скриптов ---
 # Полные шаблоны (тело — рабочие версии change_workspace_owner / add_all_users_to_workspace), значения подставляются
@@ -1131,6 +1242,287 @@ if __name__ == "__main__":
     asyncio.run(main())
 '''
 
+_REMOVE_USER_TEMPLATE = '''import asyncio
+import os
+import sys
+import asyncpg
+WORKSPACE_NAMESPACE = "workspace"
+WORKSPACE_IDS = [
+__IDS__
+]
+USER_EMAILS = [
+__EMAILS__
+]
+# Дополнительные user_id (UUID), которые нужно проверить/удалить.
+# Заполните, если пользователь не находится по email (осиротевшие гранты).
+EXTRA_USER_IDS = [
+__EXTRA_IDS__
+]
+# True — только показать, что будет сделано, ничего не менять
+DRY_RUN = __DRY__
+DEFAULT_YGGDRASIL_URL = __YGG__
+DEFAULT_HEIMDALL_URL = __HM__
+def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
+    for name in variable_names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return default
+async def fetch_user_ids_by_email(connection: asyncpg.Connection, email: str) -> list[str]:
+    """Все id из users по email (в одной таблице может быть несколько строк)."""
+    try:
+        rows = await connection.fetch(
+            "SELECT id::text FROM users WHERE lower(email) = lower($1)", email
+        )
+    except Exception:
+        return []
+    return [r["id"] for r in rows]
+async def resolve_user_ids(
+    yggdrasil_connection: asyncpg.Connection,
+    heimdall_connection: asyncpg.Connection,
+    email: str,
+) -> list[str]:
+    """Все user_id по email: из users (yggdrasil) и из users (heimdall_auth, если есть).
+    Плюс — все user_id, у которых есть access_grants на эти пространства,
+    и email которых совпадает в любой из таблиц users (ловит legacy-гранты,
+    привязанные к id, который по email не находится)."""
+    ids = []
+    for conn in (yggdrasil_connection, heimdall_connection):
+        for uid in await fetch_user_ids_by_email(conn, email):
+            if uid not in ids:
+                ids.append(uid)
+    # Доп. источник: user_id из access_grants по пространствам.
+    try:
+        rows = await heimdall_connection.fetch(
+            """
+            SELECT DISTINCT user_id::text AS uid
+            FROM access_grants
+            WHERE namespace = $1 AND resource_id = ANY($2)
+            """,
+            WORKSPACE_NAMESPACE, WORKSPACE_IDS,
+        )
+        for r in rows:
+            uid = r["uid"]
+            if uid in ids:
+                continue
+            # Проверяем, что это наш email (в любой из таблиц users).
+            is_ours = False
+            for conn in (yggdrasil_connection, heimdall_connection):
+                try:
+                    row = await conn.fetchrow(
+                        "SELECT 1 FROM users WHERE id = $1 AND lower(email) = lower($2)",
+                        uid, email,
+                    )
+                except Exception:
+                    row = None
+                if row is not None:
+                    is_ours = True
+                    break
+            if is_ours:
+                ids.append(uid)
+    except Exception:
+        pass
+    return ids
+async def get_workspace_state(connection: asyncpg.Connection, workspace_id: str) -> dict:
+    row = await connection.fetchrow(
+        """
+        SELECT id::text AS id, name, type, status, trash_state,
+               owner_id::text AS owner_id
+        FROM workspaces
+        WHERE id = $1
+        """,
+        workspace_id,
+    )
+    if row is None:
+        raise ValueError(f"Workspace not found: {workspace_id}")
+    if row["status"] == "archived" or row["trash_state"] is not None:
+        raise ValueError(f"Workspace is archived or trashed: {workspace_id}")
+    return dict(row)
+async def get_member_role(connection: asyncpg.Connection, workspace_id: str, user_id: str) -> str | None:
+    return await connection.fetchval(
+        """
+        SELECT role_id
+        FROM workspace_members
+        WHERE workspace_id = $1 AND user_id = $2
+        """,
+        workspace_id, user_id,
+    )
+async def get_grant(
+    heimdall_connection: asyncpg.Connection, user_id: str, workspace_id: str
+) -> str | None:
+    return await heimdall_connection.fetchval(
+        """
+        SELECT role_id
+        FROM access_grants
+        WHERE user_id = $1
+          AND namespace = $2
+          AND resource_id = $3
+        """,
+        user_id, WORKSPACE_NAMESPACE, workspace_id,
+    )
+async def remove_member(
+    yggdrasil_connection: asyncpg.Connection,
+    heimdall_connection: asyncpg.Connection,
+    workspace_id: str,
+    user_id: str,
+) -> None:
+    # 1) Yggdrasil: workspace_members
+    await yggdrasil_connection.execute(
+        """
+        DELETE FROM workspace_members
+        WHERE workspace_id = $1 AND user_id = $2
+        """,
+        workspace_id, user_id,
+    )
+    # 2) Yggdrasil: workspace_favorites
+    await yggdrasil_connection.execute(
+        """
+        DELETE FROM workspace_favorites
+        WHERE workspace_id = $1 AND user_id = $2
+        """,
+        workspace_id, user_id,
+    )
+    # 3) Heimdall: access_grants
+    await heimdall_connection.execute(
+        """
+        DELETE FROM access_grants
+        WHERE user_id = $1
+          AND namespace = $2
+          AND resource_id = $3
+        """,
+        user_id, WORKSPACE_NAMESPACE, workspace_id,
+    )
+async def main() -> None:
+    yggdrasil_url = get_database_url(("YGGDRASIL_DATABASE_URL",), DEFAULT_YGGDRASIL_URL)
+    heimdall_url = get_database_url(("HEIMDALL_DATABASE_URL", "AUTH_DATABASE_URL"), DEFAULT_HEIMDALL_URL)
+    if not WORKSPACE_IDS:
+        print("ERROR: заполните WORKSPACE_IDS")
+        sys.exit(2)
+    if not USER_EMAILS or any("@" not in email for email in USER_EMAILS):
+        print("ERROR: заполните USER_EMAILS (список email)")
+        sys.exit(2)
+    import uuid as _uuid
+    for uid in EXTRA_USER_IDS:
+        try:
+            _uuid.UUID(uid)
+        except ValueError:
+            print(f"ERROR: EXTRA_USER_IDS содержит не-UUID: {uid}")
+            sys.exit(2)
+    yggdrasil_connection = await asyncpg.connect(yggdrasil_url)
+    heimdall_connection = await asyncpg.connect(heimdall_url)
+    try:
+        print(f"пользователи: {', '.join(USER_EMAILS)}")
+        print(f"режим: {'DRY RUN — ничего не будет изменено' if DRY_RUN else 'APPLY'}")
+        print()
+        removed = 0
+        not_member = 0
+        planned = 0
+        owners = 0
+        ws_errors = 0
+        missing = []
+        seen_uids = set()
+        for workspace_id in WORKSPACE_IDS:
+            try:
+                ws = await get_workspace_state(yggdrasil_connection, workspace_id)
+            except ValueError as error:
+                print(f"[SKIP] workspace_id={workspace_id}: {error}")
+                ws_errors += 1
+                continue
+            print(f"workspace_id={workspace_id} name={ws['name']!r} type={ws['type']}")
+            for email in USER_EMAILS:
+                user_ids = await resolve_user_ids(yggdrasil_connection, heimdall_connection, email)
+                for uid in user_ids:
+                    seen_uids.add(uid)
+                if not user_ids:
+                    print(f"  [SKIP] {email}: пользователь не найден в users (yggdrasil/heimdall_auth)")
+                    if email not in missing:
+                        missing.append(email)
+                    continue
+                # Защита: владельца удалить нельзя — сначала смените владельца.
+                if ws["owner_id"] in user_ids:
+                    print(f"  [SKIP] {email}: пользователь — владелец пространства, сначала смените владельца")
+                    owners += 1
+                    print()
+                    continue
+                print(f"  пользователь: {email} (user_id: {', '.join(user_ids)})")
+                any_role = None
+                any_grant = None
+                for user_id in user_ids:
+                    role = await get_member_role(yggdrasil_connection, workspace_id, user_id)
+                    grant = await get_grant(heimdall_connection, user_id, workspace_id)
+                    print(f"    user_id={user_id}: yggdrasil role={role}, heimdall grant={grant}")
+                    if role is not None:
+                        any_role = role
+                    if grant is not None:
+                        any_grant = grant
+                if any_role is None and any_grant is None:
+                    print("  [SKIP] пользователь не является участником пространства")
+                    not_member += 1
+                    print()
+                    continue
+                if DRY_RUN:
+                    print("  план: удалить из workspace_members, workspace_favorites, access_grants (по всем user_id)")
+                    print("  DRY RUN: изменения не применены")
+                    planned += 1
+                    print()
+                    continue
+                async with yggdrasil_connection.transaction(), heimdall_connection.transaction():
+                    for user_id in user_ids:
+                        await remove_member(
+                            yggdrasil_connection, heimdall_connection,
+                            workspace_id, user_id,
+                        )
+                print("  [OK] пользователь удалён из пространства")
+                removed += 1
+                print()
+            # Дополнительные user_id (вручную из чекера)
+            for extra_uid in EXTRA_USER_IDS:
+                if extra_uid in seen_uids:
+                    continue
+                seen_uids.add(extra_uid)
+                if ws["owner_id"] == extra_uid:
+                    print(f"  [SKIP] user_id={extra_uid}: владелец пространства, сначала смените владельца")
+                    owners += 1
+                    print()
+                    continue
+                role = await get_member_role(yggdrasil_connection, workspace_id, extra_uid)
+                grant = await get_grant(heimdall_connection, extra_uid, workspace_id)
+                print(f"  пользователь: (user_id={extra_uid}, из EXTRA_USER_IDS)")
+                print(f"    yggdrasil role={role}, heimdall grant={grant}")
+                if role is None and grant is None:
+                    print("  [SKIP] записей нет")
+                    not_member += 1
+                    print()
+                    continue
+                if DRY_RUN:
+                    print("  план: удалить из workspace_members, workspace_favorites, access_grants")
+                    print("  DRY RUN: изменения не применены")
+                    planned += 1
+                    print()
+                    continue
+                async with yggdrasil_connection.transaction(), heimdall_connection.transaction():
+                    await remove_member(
+                        yggdrasil_connection, heimdall_connection,
+                        workspace_id, extra_uid,
+                    )
+                print("  [OK] пользователь удалён из пространства")
+                removed += 1
+                print()
+        if DRY_RUN:
+            print(f"итого: пространств={len(WORKSPACE_IDS)}, к удалению={planned}, не участники={not_member}, владельцев={owners}, ошибок пространств={ws_errors}")
+        else:
+            print(f"итого: пространств={len(WORKSPACE_IDS)}, удалено={removed}, не участники={not_member}, владельцев={owners}, ошибок пространств={ws_errors}")
+        if missing:
+            print(f"не найдено пользователей={len(missing)}: {', '.join(missing)}")
+        if ws_errors or missing or owners:
+            sys.exit(1)
+    finally:
+        await yggdrasil_connection.close()
+        await heimdall_connection.close()
+if __name__ == "__main__":
+    asyncio.run(main())
+'''
+
 _LIST_WORKSPACES_TEMPLATE = '''import asyncio
 import os
 import sys
@@ -1212,6 +1604,19 @@ def generate_add_user_script(workspace_ids, user_emails, dry_run, ygg_url, hm_ur
             .replace("__HM__", json.dumps(hm_url)))
 
 
+def generate_remove_user_script(workspace_ids, user_emails, dry_run, ygg_url, hm_url, extra_user_ids=None):
+    emails_block = ",\n".join(f'    {json.dumps(e)}' for e in user_emails)
+    extra_ids = extra_user_ids or []
+    extra_block = ",\n".join(f'    {json.dumps(uid)}' for uid in extra_ids) if extra_ids else "    # (пусто — не нужно)"
+    return (_REMOVE_USER_TEMPLATE
+            .replace("__EXTRA_IDS__", extra_block)
+            .replace("__IDS__", _ids_block(workspace_ids))
+            .replace("__EMAILS__", emails_block)
+            .replace("__DRY__", "True" if dry_run else "False")
+            .replace("__YGG__", json.dumps(ygg_url))
+            .replace("__HM__", json.dumps(hm_url)))
+
+
 def generate_list_workspaces_script(ygg_url):
     return _LIST_WORKSPACES_TEMPLATE.replace("__YGG__", json.dumps(ygg_url))
 
@@ -1232,7 +1637,7 @@ def open_pod_exec(zone_code, stand_name, app_suffix):
     cowork-st02-0270). app_suffix — "yggdrasil" или "heimdall". Под в списке
     приложения выбирается вручную, вкладка exec."""
     app_path = f"{stand_name}/{stand_name}-{app_suffix}"
-    webbrowser.open(f"{_argocd_base(zone_code)}/applications/{app_path}?resource=")
+    open_url(f"{_argocd_base(zone_code)}/applications/{app_path}?resource=")
     print_info(f"В списке приложения выберите под {app_suffix}* и откройте вкладку exec.")
 
 
@@ -1243,25 +1648,10 @@ def open_workspace_exec(zone_code, script_content, script_name):
     out = EXEC_DIR / script_name
     out.write_text(script_content, encoding="utf-8")
     print_info(f"Скрипт сохранён: {out}")
-    _ensure_py_alias_hint()
-    webbrowser.open(f"{_argocd_base(zone_code)}/applications/{ARGOCD_APP}?resource=")
+    open_url(f"{_argocd_base(zone_code)}/applications/{ARGOCD_APP}?resource=")
     print_info(f"В списке приложения выберите под {DEBUG_POD_PREFIX}* (вкладка exec), "
-               f"скопируйте содержимое {script_name} в веб-терминал и запустите: py {script_name}")
+               f"скопируйте содержимое {script_name} в веб-терминал и запустите: python3 {script_name}")
 
-
-def _ensure_py_alias_hint():
-    """Одноразовая подсказка: создать симлинк py -> python3 в debug-пode."""
-    flag = DSN_CACHE_PATH.parent / "py-alias-hint-shown"
-    if flag.exists():
-        return
-    print_info("Одноразовая настройка: чтобы запускать скрипты командой py, выполните в поде debug-ubuntu:")
-    print_info(colorize('ln -sf "$(command -v python3)" /usr/local/bin/py', CYAN))
-    input(f"{action_label()} Выполните команду в поде, затем нажмите Enter (при рестарте пода команду нужно повторить): ")
-    try:
-        flag.parent.mkdir(parents=True, exist_ok=True)
-        flag.write_text(datetime.now().isoformat(), encoding="utf-8")
-    except OSError:
-        pass
 
 # --- Управление пространствами: ввод параметров ---
 def prompt_workspace_ids():
@@ -1417,7 +1807,7 @@ def _prompt_emails(prompt, error_note):
 
 def _prompt_dry_run():
     """Спрашивает режим запуска. True — DRY RUN, False — боевой, None — отмена."""
-    choice = input(f"{action_label()} Режим DRY RUN (1) / Запустить скрипт в боевом режиме (2)? (1/{colorize('2', CYAN)}, по умолчанию 1): ").strip().lower()
+    choice = input(f"{action_label()} Режим запуска: {colorize('1', CYAN)} — DRY RUN, {colorize('2', CYAN)} — боевой (по умолчанию 1): ").strip().lower()
     if choice in ("", "1"):
         return True
     if choice == "2":
@@ -1491,6 +1881,23 @@ def ws_add_user(selected, zone):
         "Скрипт с DRY_RUN=True сохранён в exec/.",
     )
 
+def ws_remove_user(selected, zone):
+    ids = prompt_workspace_ids()
+    if not ids:
+        print_warn("Не введено ни одного ID, операция отменена.")
+        return
+    emails = _prompt_emails("Email пользователей (через запятую)", "Некорректный email, операция отменена.")
+    if not emails:
+        return
+    extra_ids_raw = input(f"{action_label()} Дополнительные user_id через запятую (если пользователь не находится по email, Enter — пропустить): ").strip()
+    extra_ids = [x.strip() for x in extra_ids_raw.split(",") if x.strip()] if extra_ids_raw else []
+    ygg, hm = prompt_db_urls(selected, zone)
+    _run_with_dry_run(
+        zone, "remove_user_from_workspace.py",
+        lambda dry: generate_remove_user_script(ids, emails, dry, ygg, hm, extra_ids),
+        "Скрипт с DRY_RUN=True сохранён в exec/.",
+    )
+
 
 def ws_add_base_spaces(selected, zone):
     """Добавляет пользователей в базовые пространства (только стенд demo).
@@ -1522,6 +1929,7 @@ _WS_ACTIONS = {
     "3": ws_mass_add,
     "4": ws_list_workspaces,
     "5": ws_add_base_spaces,
+    "6": ws_remove_user,
 }
 
 
@@ -1539,6 +1947,7 @@ def workspace_menu(selected):
         print("  4. Показать все пространства на стенде")
         if is_demo:
             print("  5. Добавить базовые пространства")
+        print("  6. Удалить пользователя из пространства")
         print("  0. Назад")
         choice = input_with_timeout("Выберите функцию: ", 60)
         if choice is None:
@@ -1602,12 +2011,35 @@ def _init_zones(repo_root):
 
 
 def _verify_zones(repo_root, zones):
-    missing = [z for z in zones if not (repo_root / z["path"]).exists()]
-    for zone in missing:
-        print_error(f"Кластер {zone['label']} не найден!")
-    if missing:
-        print_error("Ошибка: некоторые зоны не найдены. Продолжение невозможно.")
+    """Самопроверка при старте: каждая зона существует, читаема и содержит конфиги."""
+    print_info("Самопроверка доступности зон:")
+    missing = []
+    unreadable = []
+    empty = []
+    for zone in zones:
+        base = repo_root / zone["path"]
+        if not base.exists():
+            missing.append(zone)
+            print(f"  {_tag('ERROR', RED)} {zone['label']}: папка {zone['path']} не найдена")
+            continue
+        try:
+            stand_prefixes = tuple(zone.get("stand_prefixes", ("cowork-",)))
+            configs = [p for p in base.rglob(CONFIG) if p.parent.name.startswith(stand_prefixes)]
+        except OSError as error:
+            unreadable.append(zone)
+            print(f"  {_tag('ERROR', RED)} {zone['label']}: папка {zone['path']} не читается ({error})")
+            continue
+        if not configs:
+            empty.append(zone)
+            print(f"  {_tag('WARN', YELLOW)} {zone['label']}: папка {zone['path']} не содержит config.yaml")
+        else:
+            print(f"  {_tag('OK', GREEN)} {zone['label']}: {len(configs)} конфиг(ов) в {zone['path']}")
+    if missing or unreadable:
+        print_error("Ошибка: некоторые зоны недоступны. Продолжение невозможно.")
         sys.exit(1)
+    if empty:
+        print(f"  {_tag('WARN', YELLOW)} В некоторых зонах нет конфигов — поиск по ним вернёт пусто.")
+    print_info(f"Самопроверка завершена: зон проверено {len(zones)}, ошибок {len(missing) + len(unreadable)}.")
 
 
 def _prompt_search_criteria():
@@ -1628,8 +2060,12 @@ def _prompt_search_criteria():
     }
 
 
+def _handle_keyboard_interrupt():
+    print("\nВыполнение остановлено пользователем.")
+    raise SystemExit(130)
 def main():
     print_logo()
+    select_runtime_mode()
     script_dir = Path(__file__).parent.resolve()
     try:
         repo_root = get_repo_root(script_dir)
@@ -1637,9 +2073,10 @@ def main():
         print_error(str(e))
         sys.exit(1)
 
-    pull_repo(repo_root, script_dir / "news")
+    pull_result = pull_repo(repo_root, script_dir / "news")
     zones = _init_zones(repo_root)
     _verify_zones(repo_root, zones)
+    report_pull(repo_root, script_dir / "news", *pull_result)
 
     while True:
         criteria = _prompt_search_criteria()
@@ -1659,4 +2096,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        _handle_keyboard_interrupt()
