@@ -57,7 +57,7 @@ def open_file(path):
         webbrowser.open(Path(path).resolve().as_uri())
 
 # --- Версия ---
-VERSION = "v2.7.0"
+VERSION = "v2.7.1"
 
 # --- Пути и константы ---
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
@@ -68,6 +68,7 @@ ZONES_DIR = Path(__file__).parent / "zones"
 ZONES_CONFIG_FILE = ZONES_DIR / "zones_config.json"
 EXEC_DIR = Path(__file__).parent / "exec"
 
+# Зоны подменю «Управление пространствами».
 # code — суффикс ArgoCD (argocd-<code>.cowork.ru); cluster — имя кластера в репозитории.
 WORKSPACE_ZONES = [
     {"code": "st02", "cluster": "cce-prod-st02"},
@@ -75,6 +76,7 @@ WORKSPACE_ZONES = [
     {"code": "sdb-tb01", "cluster": "cce-sdb-tb01-stands"},
     {"code": "tb04", "cluster": "cce-prod-tb04"},
 ]
+# Нестандартные зоны: путь в репозитории не по шаблону cce-prod/cowork/clusters/<cluster>.
 # code ArgoCD берётся из url; label используется как stand_dir в результатах поиска.
 EXTRA_ZONES = [
     {
@@ -85,6 +87,7 @@ EXTRA_ZONES = [
     },
 ]
 # Белый список: finder читает в репозитории ТОЛЬКО эти корневые папки.
+# Всё остальное в репозитории не трогается и не сканируется.
 ALLOWED_REPO_DIRS = ("cce-prod", "cce-prod-tb01", "cce-sdb-tb01")
 def _zone_path_allowed(path):
     """Проверка, что путь зоны лежит внутри одной из ALLOWED_REPO_DIRS."""
@@ -96,6 +99,7 @@ ARGOCD_APP = "cowork/cowork"
 DEBUG_POD_PREFIX = "debug-ubuntu"
 
 # --- Базовые пространства (опция 5 подменю, только стенд demo) ---
+# ID базовых пространств, доступ к которым выдаётся пользователю одним скриптом.
 BASE_WORKSPACE_IDS = [
     "f7a1d8cc-63d8-4063-a9b0-345cad57b5d6",
     "f4d1b8a9-12b2-4cd8-af5c-3d03b459d24e",
@@ -447,7 +451,7 @@ def report_pull(repo_root, news_dir, remote_url, head_before, head_after):
         print_info("Новых изменений нет.")
 
 # --- Поиск стендов ---
-_CONFIG_KEYS = ("stand_name", "cowork_subdomain", "admin_email", "expiry_date", "cowork_revision")
+_CONFIG_KEYS = ("stand_name", "cowork_subdomain", "admin_email", "expiry_date", "cowork_revision", "public_hostname")
 
 
 def read_config(file_path):
@@ -505,6 +509,8 @@ def _print_stand(idx, data):
     print(f"   Расположение: {data.get('stand_dir', 'N/A')}")
     print(f"   stand_name: {data.get('stand_name', 'N/A')}")
     print(f"   cowork_subdomain: {data.get('cowork_subdomain', 'N/A')}")
+    if data.get('public_hostname'):
+        print(f"   public_hostname: {data.get('public_hostname')}")
     print(f"   admin_email: {data.get('admin_email', 'N/A')}")
     print(f"   ИНН: {data.get('inn', 'N/A')}")
     print(f"   expiry_date: {data.get('expiry_date', 'N/A')}")
@@ -541,6 +547,10 @@ def open_links(selected, script_dir):
 
 
 def open_tenant(selected):
+    hostname = selected.get('public_hostname')
+    if hostname:
+        open_url(f"https://{hostname}")
+        return
     subdomain = selected.get('cowork_subdomain')
     if not subdomain:
         print_warn("Не указан cowork_subdomain, невозможно открыть тенант.")
