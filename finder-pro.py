@@ -57,7 +57,7 @@ def open_file(path):
         webbrowser.open(Path(path).resolve().as_uri())
 
 # --- Версия ---
-VERSION = "v2.7.4"
+VERSION = "v2.7.9"
 
 # --- Пути и константы ---
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
@@ -82,10 +82,11 @@ EXTRA_ZONES = [
     {
         "path": "cce-sdb-tb01/cowork/stands",
         "label": "cce-sdb-tb01-stands",
-        "url": "https://argocd.sdb-tb01.cowork.ru/applications/cowork/{folder}?resource=",
+        "url": "https://argocd.cowork.gigab2b.ru/applications/cowork/{folder}?resource=",
         "stand_prefixes": ("sber-", "cowork"),
-        "app_template": "{stand_name}/{stand_name}-stand",
-        "argocd_base": "https://argocd.sdb-tb01.cowork.ru",
+        "app_template": "cowork/{stand_name}-{app_suffix}",
+        "argocd_base": "https://argocd.cowork.gigab2b.ru",
+        "links_app": "cowork-heimdall",
     },
 ]
 # Белый список: finder читает в репозитории ТОЛЬКО эти корневые папки.
@@ -538,14 +539,20 @@ def select_stand(results):
         print_warn("Неверный ввод, попробуйте снова.")
 
 # --- Быстрые действия (браузер) ---
-def open_links(selected, script_dir):
+def open_links(selected, script_dir, zone=None):
     helper = script_dir / "admin-helper-new.html"
     if helper.exists():
         open_file(str(helper))
     else:
         print_warn("admin-helper-new.html не найден.")
-    url = selected['url_template'].format(folder=selected['folder'])
-    open_url(url)
+    if zone and zone.get("links_app"):
+        # Особенность зоны: приложение Admin Helper — не {folder}, а links_app
+        # (sdb: cowork/cowork-heimdall вместо cowork/cowork).
+        base = zone.get("argocd_base") or _argocd_base(zone["code"])
+        open_url(f"{base}/applications/{selected['folder']}/{zone['links_app']}?resource=")
+    else:
+        url = selected['url_template'].format(folder=selected['folder'])
+        open_url(url)
 
 
 def open_tenant(selected):
@@ -1650,14 +1657,26 @@ def open_pod_exec(zone_code, stand_name, app_suffix, app_template=None, argocd_b
     app_template — шаблон пути (например "{stand_name}/{stand_name}-stand");
     по умолчанию "{stand_name}/{stand_name}-{app_suffix}".
     argocd_base — базовый URL ArgoCD (если зона использует нестандартный формат).
-    Под в списке приложения выбирается вручную, вкладка exec."""
+    Под в списке приложения выбирается вручную, вкладка exec.
+    Если путь приложения не зависит от app_suffix (все поды в одном
+    ArgoCD-приложении) — браузер открывается один раз, дальше только подсказка."""
     if app_template:
         app_path = app_template.format(stand_name=stand_name, app_suffix=app_suffix)
+        suffix_dependent = "{app_suffix}" in app_template
     else:
         app_path = f"{stand_name}/{stand_name}-{app_suffix}"
+        suffix_dependent = True
     base = argocd_base or _argocd_base(zone_code)
-    open_url(f"{base}/applications/{app_path}?resource=")
-    print_info(f"В списке приложения выберите под {app_suffix}* и откройте вкладку exec.")
+    if suffix_dependent:
+        open_url(f"{base}/applications/{app_path}?resource=")
+        print_info(f"В списке приложения выберите под {app_suffix}* и откройте вкладку exec.")
+    else:
+        if not getattr(open_pod_exec, "_opened", None):
+            open_url(f"{base}/applications/{app_path}?resource=")
+            open_pod_exec._opened = True
+            print_info(f"Приложение {app_path} открыто — выберите под {app_suffix}* и откройте вкладку exec.")
+        else:
+            print_info(f"В уже открытом приложении {app_path} переключитесь на под {app_suffix}* (вкладка exec).")
 
 
 def open_workspace_exec(zone_code, script_content, script_name, argocd_base=None):
@@ -1768,6 +1787,7 @@ def prompt_db_urls(selected, zone, need_heimdall=True):
             print_info(f"Использую DSN из кэша для стенда {folder}.")
             return ygg, hm
 
+    open_pod_exec._opened = False
     print_info("Открываю приложение yggdrasil в ArgoCD — скопируйте YGGDRASIL_DATABASE_URL.")
     open_pod_exec(zone["code"], stand_name, "yggdrasil", zone.get("app_template"), zone.get("argocd_base"))
     ygg_raw = input(f"{action_label()} Вставьте строку целиком (в поде: {colorize('env | grep YGGDRASIL_DATABASE_URL', CYAN)}): ").strip()
@@ -1961,8 +1981,8 @@ _WS_ACTIONS = {
     "2": ws_add_user,
     "3": ws_mass_add,
     "4": ws_list_workspaces,
-    "5": ws_add_base_spaces,
-    "6": ws_remove_user,
+    "5": ws_remove_user,
+    "6": ws_add_base_spaces,
 }
 
 
@@ -1971,16 +1991,16 @@ def workspace_menu(selected):
     is_demo = (selected.get("cowork_subdomain") or "").lower() == DEMO_STAND_SUBDOMAIN
     actions = dict(_WS_ACTIONS)
     if not is_demo:
-        actions.pop("5")
+        actions.pop("6")
     while True:
         print_action("Управление пространствами")
         print("  1. Сменить владельца пространства")
         print("  2. Добавить пользователя в пространство")
         print("  3. Массовое добавление в пространство")
         print("  4. Показать все пространства на стенде")
+        print(colorize("  5. Удалить пользователя из пространства", RED))
         if is_demo:
-            print("  5. Добавить базовые пространства")
-        print(colorize("  6. Удалить пользователя из пространства", RED))
+            print("  6. Добавить базовые пространства")
         print("  0. Назад")
         choice = input_with_timeout("Выберите функцию: ", 60)
         if choice is None:
@@ -2018,7 +2038,7 @@ def stand_action_menu(selected, script_dir):
         if action == "0":
             break
         elif action == "1":
-            open_links(selected, script_dir)
+            open_links(selected, script_dir, resolve_zone(selected))
         elif action == "2":
             open_tenant(selected)
         elif action == "3":
