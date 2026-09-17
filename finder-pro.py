@@ -57,7 +57,7 @@ def open_file(path):
         webbrowser.open(Path(path).resolve().as_uri())
 
 # --- Версия ---
-VERSION = "v2.7.1"
+VERSION = "v2.7.4"
 
 # --- Пути и константы ---
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
@@ -82,8 +82,10 @@ EXTRA_ZONES = [
     {
         "path": "cce-sdb-tb01/cowork/stands",
         "label": "cce-sdb-tb01-stands",
-        "url": "https://argocd-sdb-tb01.cowork.ru/applications/cowork/{folder}?resource=",
+        "url": "https://argocd.sdb-tb01.cowork.ru/applications/cowork/{folder}?resource=",
         "stand_prefixes": ("sber-", "cowork"),
+        "app_template": "{stand_name}/{stand_name}-stand",
+        "argocd_base": "https://argocd.sdb-tb01.cowork.ru",
     },
 ]
 # Белый список: finder читает в репозитории ТОЛЬКО эти корневые папки.
@@ -1640,25 +1642,33 @@ def _argocd_base(zone_code):
     return f"https://argocd-{zone_code}.cowork.ru"
 
 
-def open_pod_exec(zone_code, stand_name, app_suffix):
+def open_pod_exec(zone_code, stand_name, app_suffix, app_template=None, argocd_base=None):
     """Открывает страницу приложения стенда (yggdrasil / heimdall) в ArgoCD.
 
     stand_name — имя папки/неймспейса стенда из результата поиска (например
-    cowork-st02-0270). app_suffix — "yggdrasil" или "heimdall". Под в списке
-    приложения выбирается вручную, вкладка exec."""
-    app_path = f"{stand_name}/{stand_name}-{app_suffix}"
-    open_url(f"{_argocd_base(zone_code)}/applications/{app_path}?resource=")
+    cowork-st02-0270). app_suffix — "yggdrasil" или "heimdall".
+    app_template — шаблон пути (например "{stand_name}/{stand_name}-stand");
+    по умолчанию "{stand_name}/{stand_name}-{app_suffix}".
+    argocd_base — базовый URL ArgoCD (если зона использует нестандартный формат).
+    Под в списке приложения выбирается вручную, вкладка exec."""
+    if app_template:
+        app_path = app_template.format(stand_name=stand_name, app_suffix=app_suffix)
+    else:
+        app_path = f"{stand_name}/{stand_name}-{app_suffix}"
+    base = argocd_base or _argocd_base(zone_code)
+    open_url(f"{base}/applications/{app_path}?resource=")
     print_info(f"В списке приложения выберите под {app_suffix}* и откройте вкладку exec.")
 
 
-def open_workspace_exec(zone_code, script_content, script_name):
+def open_workspace_exec(zone_code, script_content, script_name, argocd_base=None):
     """Сохраняет скрипт в папку exec/ рядом с finder и открывает страницу приложения
     ArgoCD, где под debug-ubuntu выбирается вручную (вкладка exec)."""
     EXEC_DIR.mkdir(parents=True, exist_ok=True)
     out = EXEC_DIR / script_name
     out.write_text(script_content, encoding="utf-8")
     print_info(f"Скрипт сохранён: {out}")
-    open_url(f"{_argocd_base(zone_code)}/applications/{ARGOCD_APP}?resource=")
+    base = argocd_base or _argocd_base(zone_code)
+    open_url(f"{base}/applications/{ARGOCD_APP}?resource=")
     print_info(f"В списке приложения выберите под {DEBUG_POD_PREFIX}* (вкладка exec), "
                f"скопируйте содержимое {script_name} в веб-терминал и запустите: python3 {script_name}")
 
@@ -1759,13 +1769,13 @@ def prompt_db_urls(selected, zone, need_heimdall=True):
             return ygg, hm
 
     print_info("Открываю приложение yggdrasil в ArgoCD — скопируйте YGGDRASIL_DATABASE_URL.")
-    open_pod_exec(zone["code"], stand_name, "yggdrasil")
+    open_pod_exec(zone["code"], stand_name, "yggdrasil", zone.get("app_template"), zone.get("argocd_base"))
     ygg_raw = input(f"{action_label()} Вставьте строку целиком (в поде: {colorize('env | grep YGGDRASIL_DATABASE_URL', CYAN)}): ").strip()
 
     hm_raw = ""
     if need_heimdall:
         print_info("Открываю приложение heimdall в ArgoCD — скопируйте AUTH_DATABASE_URL.")
-        open_pod_exec(zone["code"], stand_name, "heimdall")
+        open_pod_exec(zone["code"], stand_name, "heimdall", zone.get("app_template"), zone.get("argocd_base"))
         hm_raw = input(f"{action_label()} Вставьте строку целиком (в поде: {colorize('env | grep AUTH_DATABASE_URL', CYAN)}): ").strip()
 
     ygg = _resolve_db_url(ygg_raw, "yggdrasil", "yggdrasil-postgres-rw", "yggdrasil", folder, "YGGDRASIL_DATABASE_URL")
@@ -1788,12 +1798,18 @@ def prompt_db_urls(selected, zone, need_heimdall=True):
 def resolve_zone(selected):
     """Определяет зону автоматически из результата поиска (stand_dir = cce-prod-st02).
 
-    Сначала точное совпадение имени кластера, затем — по коду (st02, tb01, tb04) в конце."""
+    Сначала точное совпадение имени кластера, затем — по коду (st02, tb01, tb04) в конце.
+    Если зона есть в EXTRA_ZONES — сливает дополнительные поля (app_template и др.)."""
     cluster = selected.get("stand_dir", "")
     code = cluster.rsplit("-", 1)[-1] if cluster else ""
     for z in WORKSPACE_ZONES:
         if z["cluster"] == cluster or z["code"] == code:
-            return z
+            result = dict(z)
+            for extra in EXTRA_ZONES:
+                if extra["label"] == z["cluster"]:
+                    result.update(extra)
+                    break
+            return result
     return None
 
 # --- Управление пространствами: функции подменю ---
@@ -1833,14 +1849,14 @@ def _run_with_dry_run(zone, script_name, generate, skip_note):
     dry_run = _prompt_dry_run()
     if dry_run is None:
         return
-    open_workspace_exec(zone["code"], generate(dry_run), script_name)
+    open_workspace_exec(zone["code"], generate(dry_run), script_name, zone.get("argocd_base"))
     if not dry_run:
         return
     # После DRY RUN — предлагаем доделать в боевом режиме.
     print_info("После сверки вывода DRY RUN — запустите боевой режим.")
     apply_now = input(f"{action_label()} Запустить в боевом режиме сейчас? ({colorize('yes', CYAN)}/{colorize('no', CYAN)}): ").strip().lower()
     if apply_now in ("yes", "y"):
-        open_workspace_exec(zone["code"], generate(False), script_name)
+        open_workspace_exec(zone["code"], generate(False), script_name, zone.get("argocd_base"))
     else:
         print_info(skip_note)
 
@@ -1873,7 +1889,7 @@ def ws_mass_add(selected, zone):
         print_warn("Запуск отменён, возврат в меню.")
         return
     script = generate_mass_add_script(ids, ygg, hm)
-    open_workspace_exec(zone["code"], script, "add_all_users_to_workspace.py")
+    open_workspace_exec(zone["code"], script, "add_all_users_to_workspace.py", zone.get("argocd_base"))
 
 
 def ws_add_user(selected, zone):
@@ -1902,6 +1918,13 @@ def ws_remove_user(selected, zone):
     extra_ids_raw = input(f"{action_label()} Дополнительные user_id через запятую (если пользователь не находится по email, Enter — пропустить): ").strip()
     extra_ids = [x.strip() for x in extra_ids_raw.split(",") if x.strip()] if extra_ids_raw else []
     ygg, hm = prompt_db_urls(selected, zone)
+    print_warn("Вы точно хотите удалить пользователя из пространства?")
+    for e in emails:
+        print(colorize(f"    - {e}", YELLOW))
+    confirm = input(f"{action_label()} Подтвердите (y/n): ").strip().lower()
+    if confirm not in ("y", "yes"):
+        print_info("Операция отменена.")
+        return
     _run_with_dry_run(
         zone, "remove_user_from_workspace.py",
         lambda dry: generate_remove_user_script(ids, emails, dry, ygg, hm, extra_ids),
@@ -1930,7 +1953,7 @@ def ws_add_base_spaces(selected, zone):
 def ws_list_workspaces(selected, zone):
     ygg, _ = prompt_db_urls(selected, zone, need_heimdall=False)
     script = generate_list_workspaces_script(ygg)
-    open_workspace_exec(zone["code"], script, "list_workspaces.py")
+    open_workspace_exec(zone["code"], script, "list_workspaces.py", zone.get("argocd_base"))
 
 # --- Меню ---
 _WS_ACTIONS = {
@@ -1957,7 +1980,7 @@ def workspace_menu(selected):
         print("  4. Показать все пространства на стенде")
         if is_demo:
             print("  5. Добавить базовые пространства")
-        print("  6. Удалить пользователя из пространства")
+        print(colorize("  6. Удалить пользователя из пространства", RED))
         print("  0. Назад")
         choice = input_with_timeout("Выберите функцию: ", 60)
         if choice is None:

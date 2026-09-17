@@ -1,6 +1,6 @@
 # Finder стендов Giga Cowork
 
-**Версия: v2.7.0**
+**Версия: v2.7.4**
 
 Скрипт для поиска стендов (`config.yaml`) в Git-репозитории `argocd` по `cowork_subdomain`, `admin_email`, `ИНН` или `stand_name`. Скрипт автоматически обновляет репозиторий, рекурсивно ищет конфиги в заданных зонах и выводит информацию о найденных стендах, а также предоставляет быстрый доступ к связанным инструментам и **управление пространствами** (смена владельца, добавление пользователей, вывод списка пространств).
 
@@ -50,7 +50,7 @@
 - Доступ к репозиторию `git@git.sberdevices.ru:gigabb/infra/cowork/argocd.git` (SSH или HTTPS) — **этот репозиторий остаётся корпоративным** и используется скриптом для поиска стендов.
 - Локальная папка `~/Documents/Giga/cowork/argocd` (по умолчанию) или измените путь в переменной `REPO_PATH` в скрипте.
 - Браузер (finder открывает страницы ArgoCD и тенантов через `webbrowser`).
-- Доступ к ArgoCD зоны (`https://argocd-st02.cowork.ru`, `https://argocd-tb01.cowork.ru`, `https://argocd-sdb-tb01.cowork.ru`, `https://argocd-tb04.cowork.ru`) — для подменю «Управление пространствами».
+- Доступ к ArgoCD зоны (`https://argocd-st02.cowork.ru`, `https://argocd-tb01.cowork.ru`, `https://argocd.sdb-tb01.cowork.ru`, `https://argocd-tb04.cowork.ru`) — для подменю «Управление пространствами».
 
 ---
 
@@ -205,6 +205,14 @@ finder/
 
 ## История версий
 
+- **v2.7.4**
+  - Пункт 6 подменю «Удалить пользователя из пространства» подсвечен красным. Перед записью `remove_user_from_workspace.py` в `exec/` запрашивается подтверждение: email жёлтым + [WARN], при отказе операция отменяется.
+- **v2.7.3**
+  - Фикс домена ArgoCD для sdb-зоны: `argocd.sdb-tb01.cowork.ru` (точка, не дефис). Поле `argocd_base` в `EXTRA_ZONES` — нестандартный базовый URL ArgoCD, используется в `open_pod_exec` и `open_workspace_exec`.
+- **v2.7.2**
+  - Путь ArgoCD-приложения стенда настраивается на зону (`app_template`): для `cce-sdb-tb01-stands` — `{stand_name}/{stand_name}-stand` (по `cowork-stands-argocd.yaml`), для стандартных зон — как раньше `{stand_name}/{stand_name}-{app_suffix}`. `resolve_zone` сливает поля из `EXTRA_ZONES`.
+- **v2.7.1**
+  - Открытие тенанта: если в `config.yaml` стенда есть `public_hostname` (например, `cowork.gigab2b.ru` у sdb-стенда), используется он; иначе — как раньше, `https://{cowork_subdomain}.cowork.ru`. `public_hostname` показывается в карточке стенда.
 - **v2.7.0**
   - Поддержка запуска из Windows и WSL: при старте спрашивается среда (1 — Windows, 2 — WSL). Все открытия браузера и локальных файлов идут через обёртки `open_url`/`open_file` (в WSL — `cmd.exe /c start`, пути переводятся через `wslpath -w`). Ctrl+C останавливает скрипт без traceback.
   - Фикс `open_stand_config`: ссылка на GitLab строится из фактического пути зоны (`zone_path`), а не из захардкоженного `cce-prod/cowork/clusters` — теперь корректно для всех зон.
@@ -212,7 +220,7 @@ finder/
   - Зона `cce-sdb-tb01-stands`: префиксы папок стендов настраиваются на зону (`stand_prefixes`, для sdb — `sber-*` и `cowork*`), стандартные зоны — `cowork-*`.
   - Автоочистка `zones_config.json`: устаревшие зоны (больше не в `EXTRA_ZONES` и не кластеры `cce-prod/cowork/clusters`) удаляются при старте с сообщением; поля нестандартных зон (например, `stand_prefixes`) синхронизируются из `EXTRA_ZONES` — старые конфиги подтягиваются автоматически.
 - **v2.6.0**
-  - Добавлены зоны `cce-prod-tb01-stands` (путь `cce-prod-tb01/cowork/stands`, ArgoCD — `argocd-tb01.cowork.ru`) и `cce-sdb-tb01-stands` (путь `cce-sdb-tb01/cowork/stands`, ArgoCD — `argocd-sdb-tb01.cowork.ru`): нестандартные зоны вынесены в `EXTRA_ZONES`, автоматически добавляются в `zones_config.json` при старте, участвуют в поиске стендов и подменю «Управление пространствами».
+  - Добавлены зоны `cce-prod-tb01-stands` (путь `cce-prod-tb01/cowork/stands`, ArgoCD — `argocd-tb01.cowork.ru`) и `cce-sdb-tb01-stands` (путь `cce-sdb-tb01/cowork/stands`, ArgoCD — `argocd.sdb-tb01.cowork.ru`): нестандартные зоны вынесены в `EXTRA_ZONES`, автоматически добавляются в `zones_config.json` при старте, участвуют в поиске стендов и подменю «Управление пространствами».
   - Белый список `ALLOWED_REPO_DIRS` (`cce-prod`, `cce-prod-tb01`, `cce-sdb-tb01`): finder читает в репозитории только эти корневые папки, всё остальное не сканируется; чужеродные записи в `zones_config.json` отфильтровываются при загрузке.
 - **v2.5.4**
   - Удаление пользователя: добавлено поле `EXTRA_USER_IDS` — для «осиротевших» грантов, где user_id не находится по email ни в одной таблице `users`. Finder спрашивает дополнительные user_id после email (Enter — пропустить), скрипт проверяет и удаляет их с той же защитой владельца и идемпотентностью; не-UUID — exit 2.
