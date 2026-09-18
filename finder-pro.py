@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
-"""GigaFinder — поиск стендов Giga Cowork и управление пространствами.
-
-Поиск стендов по config.yaml в репозитории argocd, быстрый доступ к
-инструментам (Admin Helper, тенант, ArgoCD) и генерация скриптов для
-управления пространствами (смена владельца, добавление пользователей,
-вывод списка пространств).
-"""
+"""GigaFinder — поиск стендов Giga Cowork и управление пространствами."""
 
 import itertools
 import json
 import re
+import platform
 import subprocess
 import sys
 import threading
@@ -21,29 +16,39 @@ from pathlib import Path
 RUNTIME_MODE = None
 def select_runtime_mode():
     global RUNTIME_MODE
+    system = platform.system()
+    if system == "Windows":
+        RUNTIME_MODE = "windows"
+        print_info("Среда: Windows (автоопределение)")
+        return
+    if system == "Darwin":
+        RUNTIME_MODE = "windows"
+        print_info("Среда: macOS (автоопределение)")
+        return
+    # Linux: может быть нативный или WSL — спрашиваем
     print()
     print("Выберите среду запуска:")
-    print("  1. Windows")
+    print("  1. Нативный Linux")
     print("  2. WSL")
     while True:
         choice = input("Среда [1/2]: ").strip()
         if choice == "1":
             RUNTIME_MODE = "windows"
-            print_info("Выбрана среда: Windows")
+            print_info("Выбрана среда: Нативный Linux")
             return
         if choice == "2":
             RUNTIME_MODE = "wsl"
             print_info("Выбрана среда: WSL")
             return
-        print_warn("Введите 1 для Windows или 2 для WSL.")
+        print_warn("Введите 1 для нативного Linux или 2 для WSL.")
 def open_url(url):
-    """Открывает URL в браузере (Windows — webbrowser, WSL — через cmd.exe)."""
+    """URL в браузере: нативно (webbrowser) или через cmd.exe в WSL."""
     if RUNTIME_MODE == "wsl":
         subprocess.run(f'cmd.exe /c start "" "{url}"', shell=True)
     else:
         webbrowser.open(url)
 def open_file(path):
-    """Открывает локальный файл (Windows — webbrowser, WSL — wslpath + cmd.exe)."""
+    """Локальный файл: нативно (webbrowser) или через wslpath + cmd.exe в WSL."""
     if RUNTIME_MODE == "wsl":
         win_path = subprocess.run(
             ["wslpath", "-w", path],
@@ -57,10 +62,12 @@ def open_file(path):
         webbrowser.open(Path(path).resolve().as_uri())
 
 # --- Версия ---
-VERSION = "v2.7.9"
+VERSION = "v2.7.14"
 
 # --- Пути и константы ---
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
+REPO_LOCAL_FILE = Path(__file__).parent / "repo_local_path.txt"  # вручную указанный путь к репозиторию
+REPO_URL = "git@git.sberdevices.ru:gigabb/infra/cowork/argocd.git"
 DSN_CACHE_PATH = Path.home() / ".gigafinder" / "dsn-cache.json"
 FAQ_AGENT_URL = "https://cowork.gigab2b.ru/workspaces/c63c8b9f-bdf0-4805-a314-b8da3eaeaea7"
 CONFIG = "config.yaml"
@@ -68,16 +75,14 @@ ZONES_DIR = Path(__file__).parent / "zones"
 ZONES_CONFIG_FILE = ZONES_DIR / "zones_config.json"
 EXEC_DIR = Path(__file__).parent / "exec"
 
-# Зоны подменю «Управление пространствами».
-# code — суффикс ArgoCD (argocd-<code>.cowork.ru); cluster — имя кластера в репозитории.
+# Зоны подменю «Управление пространствами»: code — суффикс ArgoCD, cluster — имя кластера в репозитории.
 WORKSPACE_ZONES = [
     {"code": "st02", "cluster": "cce-prod-st02"},
     {"code": "tb01", "cluster": "cce-prod-tb01"},
     {"code": "sdb-tb01", "cluster": "cce-sdb-tb01-stands"},
     {"code": "tb04", "cluster": "cce-prod-tb04"},
 ]
-# Нестандартные зоны: путь в репозитории не по шаблону cce-prod/cowork/clusters/<cluster>.
-# code ArgoCD берётся из url; label используется как stand_dir в результатах поиска.
+# Нестандартные зоны: путь не по шаблону cce-prod/cowork/clusters/<cluster>; label — stand_dir в результатах.
 EXTRA_ZONES = [
     {
         "path": "cce-sdb-tb01/cowork/stands",
@@ -89,20 +94,17 @@ EXTRA_ZONES = [
         "links_app": "cowork-heimdall",
     },
 ]
-# Белый список: finder читает в репозитории ТОЛЬКО эти корневые папки.
-# Всё остальное в репозитории не трогается и не сканируется.
+# Белый список: finder читает в репозитории только эти корневые папки.
 ALLOWED_REPO_DIRS = ("cce-prod", "cce-prod-tb01", "cce-sdb-tb01")
 def _zone_path_allowed(path):
     """Проверка, что путь зоны лежит внутри одной из ALLOWED_REPO_DIRS."""
     top = path.split("/", 1)[0]
     return top in ALLOWED_REPO_DIRS
-# Имя приложения ArgoCD, в котором живёт управляющий под debug-ubuntu.
+# Приложение ArgoCD с управляющим подом debug-ubuntu.
 ARGOCD_APP = "cowork/cowork"
-# Подстрока имени пода управляющего контейнера.
 DEBUG_POD_PREFIX = "debug-ubuntu"
 
-# --- Базовые пространства (опция 5 подменю, только стенд demo) ---
-# ID базовых пространств, доступ к которым выдаётся пользователю одним скриптом.
+# --- Базовые пространства (только стенд demo) ---
 BASE_WORKSPACE_IDS = [
     "f7a1d8cc-63d8-4063-a9b0-345cad57b5d6",
     "f4d1b8a9-12b2-4cd8-af5c-3d03b459d24e",
@@ -112,9 +114,8 @@ BASE_WORKSPACE_IDS = [
     "f77ce42b-9f5f-4870-a5b4-c46a0e6072c4",
     "9d5999da-fbcb-4278-ad9b-a5c90e686f69",
 ]
-# Опция доступна только на стенде demo (cowork-st02-0503).
 DEMO_STAND_SUBDOMAIN = "demo"
-# DSN баз данных стенда demo (полные, с паролем — опция работает без ввода DSN).
+# DSN стенда demo — опция работает без ввода DSN.
 DEMO_YGGDRASIL_URL = "postgresql://yggdrasil:22C3LZ44HU0NBvlLj32aQ7IA4S71nmpqLpa9RA0zBIvMj8Bg@yggdrasil-postgres-rw.cowork-st02-0503.svc.cluster.local:5432/yggdrasil"
 DEMO_HEIMDALL_URL = "postgresql://heimdall_auth:8Kmq71GyU1ezPmkys8mczPHbh62pxhMnsWmHi0efSmfuDEPR@heimdall-auth-postgres-rw.cowork-st02-0503.svc.cluster.local:5432/heimdall_auth"
 
@@ -175,7 +176,7 @@ def animate_spinner(stop_event):
 
 # --- Ввод с таймаутом ---
 def input_with_timeout(prompt, timeout_seconds):
-    """Ожидает ввод строки с таймаутом. Возвращает строку или None при истечении времени."""
+    """Ввод строки с таймаутом; None при истечении."""
     print(prompt, end='', flush=True)
     if sys.platform == "win32":
         import msvcrt
@@ -365,6 +366,95 @@ def get_repo_root(start):
     raise FileNotFoundError("Не найден .git")
 
 
+def _auto_restore_repo(repo_root):
+    """Восстанавливает удалённые вручную файлы из последнего коммита; изменённые не трогает."""
+    st = _git(repo_root, "status", "--porcelain")
+    lines = [l for l in st.stdout.splitlines() if l.strip()]
+    if not lines:
+        return
+    # Удалённые файлы: XY где Y='D' (working tree) или X='D' (staged delete)
+    deleted_paths = []
+    for line in lines:
+        xy = line[:2]
+        path = line[3:]
+        if 'D' in xy:
+            deleted_paths.append(path)
+    modified = [l for l in lines if 'D' not in l[:2] and not l.startswith("??")]
+    if deleted_paths:
+        print_warn(f"Обнаружено {len(deleted_paths)} удалённых файла(ов) "
+                   f"(возможно, содержимое переносили вручную). Восстанавливаю...")
+        # git restore только удалённые файлы, не трогая изменённые
+        res = _git(repo_root, "restore", "--", *deleted_paths)
+        if res.returncode != 0:
+            # fallback: если restore по списку не сработал (много файлов) — через checkout
+            res2 = _git(repo_root, "checkout", "--", ".")
+            if res2.returncode != 0:
+                print_error(f"Не удалось восстановить файлы: {res.stderr.strip()}")
+                print_info("Выполните вручную: git restore . && git status")
+                sys.exit(1)
+        print_info("Удалённые файлы восстановлены из последнего коммита.")
+    elif modified:
+        print_warn(f"Есть локальные изменения ({len(modified)} файл(ов)) — они сохранены как есть, "
+                   f"поиск использует актуальное содержимое.")
+
+def _save_repo_path(target, quiet=False):
+    REPO_LOCAL_FILE.write_text(str(target.resolve()), encoding="utf-8")
+    if not quiet:
+        print_info(f"Путь сохранён в {REPO_LOCAL_FILE.name} — в следующий раз спрашивать не буду.")
+
+def _clone_repo(target):
+    target.parent.mkdir(parents=True, exist_ok=True)
+    res = subprocess.run(["git", "clone", REPO_URL, str(target)], capture_output=True, text=True)
+    if res.returncode != 0:
+        print_error(f"git clone failed: {res.stderr.strip()}")
+        return False
+    return True
+
+def _repo_has_content(repo_root):
+    """В корне репозитория есть хотя бы одна известная корневая папка зон."""
+    return any((repo_root / d).exists() for d in ALLOWED_REPO_DIRS)
+
+def _prompt_repo_root(script_dir):
+    """Путь к репозиторию: сохранённый → ввод → клонирование. Результат запоминается."""
+    # Попробуем ранее сохранённый путь
+    if REPO_LOCAL_FILE.exists():
+        saved = REPO_LOCAL_FILE.read_text(encoding="utf-8").strip()
+        if saved and (Path(saved) / ".git").exists():
+            print_info(f"Использую сохранённый путь к репозиторию: {saved}")
+            return Path(saved).resolve()
+        print_warn(f"Сохранённый путь недоступен ({saved}), укажу заново.")
+
+    while True:
+        raw = input_with_timeout(
+            f"{action_label()} Укажите путь к локальному репозиторию argocd "
+            f"(Enter — склонировать в {REPO_PATH}): ", 300
+        )
+        if raw is None:
+            print_error("Таймаут ожидания. Запустите finder повторно.")
+            sys.exit(1)
+        target = Path(raw.strip()).expanduser() if raw.strip() else REPO_PATH
+        if (target / ".git").exists():
+            _save_repo_path(target)
+            return target.resolve()
+        answer = input_with_timeout(
+            f"[WARN] В {target} нет .git. Склонировать туда {REPO_URL}? (y/n): ", 300
+        )
+        if answer is None:
+            print_error("Таймаут ожидания. Запустите finder повторно.")
+            sys.exit(1)
+        if answer.strip().lower() in ("y", "yes"):
+            try:
+                if _clone_repo(target):
+                    _save_repo_path(target, quiet=True)
+                    print_info(f"Репозиторий склонирован в {target}, путь сохранён.")
+                    return target.resolve()
+                continue
+            except FileNotFoundError:
+                print_error("git не найден в системе. Установите git и запустите finder повторно.")
+                sys.exit(1)
+        else:
+            print_warn("Введите существующий путь к репозиторию (с папкой .git).")
+
 def _git(repo_root, *args):
     return subprocess.run(["git", *args], cwd=repo_root, capture_output=True, text=True)
 
@@ -377,14 +467,8 @@ def _stop_spinner(stop_event, spinner):
 
 
 def _extract_subdomain(config_path):
-    try:
-        if config_path.exists():
-            m = re.search(r'cowork_subdomain:\s*"?([^"\n]+)"?', config_path.read_text(encoding="utf-8"))
-            if m:
-                return m.group(1).strip()
-    except (OSError, UnicodeDecodeError):
-        pass
-    return "?"
+    """subdomain из config.yaml (для отчёта об изменениях)."""
+    return read_config(config_path).get("cowork_subdomain") or "?"
 
 
 def _report_changes(repo_root, news_dir, head_before, head_after):
@@ -410,7 +494,7 @@ def _report_changes(repo_root, news_dir, head_before, head_after):
 
 
 def pull_repo(repo_root, news_dir):
-    """git fetch + pull. Возвращает (remote_url, head_before, head_after) для отчёта."""
+    """git fetch + pull; возвращает (remote_url, head_before, head_after)."""
     stop_event = threading.Event()
     spinner = threading.Thread(target=animate_spinner, args=(stop_event,), daemon=True)
     spinner.start()
@@ -419,31 +503,24 @@ def pull_repo(repo_root, news_dir):
     try:
         remote_url = _git(repo_root, "remote", "get-url", "origin").stdout.strip()
         head_before = _git(repo_root, "rev-parse", "HEAD").stdout.strip()
-
         fetch = _git(repo_root, "fetch", "origin")
         if fetch.returncode != 0:
             raise RuntimeError(f"git fetch failed: {fetch.stderr}")
-
         branch = _git(repo_root, "symbolic-ref", "--short", "HEAD").stdout.strip()
         if not branch:
             raise RuntimeError("Не удалось определить текущую ветку.")
-
         pull = _git(repo_root, "pull", "origin", branch)
         if pull.returncode != 0:
             raise RuntimeError(f"git pull failed: {pull.stderr}")
-
         head_after = _git(repo_root, "rev-parse", "HEAD").stdout.strip()
-
-        _stop_spinner(stop_event, spinner)
-
-        if remote_url:
-            print_info(f"Удалённый репозиторий: {remote_url}")
-
-        return remote_url, head_before, head_after
     except Exception as e:
-        _stop_spinner(stop_event, spinner)
         print_error(str(e))
         sys.exit(1)
+    finally:
+        _stop_spinner(stop_event, spinner)
+    if remote_url:
+        print_info(f"Удалённый репозиторий: {remote_url}")
+    return remote_url, head_before, head_after
 
 
 def report_pull(repo_root, news_dir, remote_url, head_before, head_after):
@@ -1650,16 +1727,7 @@ def _argocd_base(zone_code):
 
 
 def open_pod_exec(zone_code, stand_name, app_suffix, app_template=None, argocd_base=None):
-    """Открывает страницу приложения стенда (yggdrasil / heimdall) в ArgoCD.
-
-    stand_name — имя папки/неймспейса стенда из результата поиска (например
-    cowork-st02-0270). app_suffix — "yggdrasil" или "heimdall".
-    app_template — шаблон пути (например "{stand_name}/{stand_name}-stand");
-    по умолчанию "{stand_name}/{stand_name}-{app_suffix}".
-    argocd_base — базовый URL ArgoCD (если зона использует нестандартный формат).
-    Под в списке приложения выбирается вручную, вкладка exec.
-    Если путь приложения не зависит от app_suffix (все поды в одном
-    ArgoCD-приложении) — браузер открывается один раз, дальше только подсказка."""
+    """Страница приложения yggdrasil/heimdall в ArgoCD; если все поды в одном приложении — браузер открывается один раз."""
     if app_template:
         app_path = app_template.format(stand_name=stand_name, app_suffix=app_suffix)
         suffix_dependent = "{app_suffix}" in app_template
@@ -1680,8 +1748,7 @@ def open_pod_exec(zone_code, stand_name, app_suffix, app_template=None, argocd_b
 
 
 def open_workspace_exec(zone_code, script_content, script_name, argocd_base=None):
-    """Сохраняет скрипт в папку exec/ рядом с finder и открывает страницу приложения
-    ArgoCD, где под debug-ubuntu выбирается вручную (вкладка exec)."""
+    """Скрипт в exec/ + страница приложения ArgoCD (под debug-ubuntu выбирается вручную)."""
     EXEC_DIR.mkdir(parents=True, exist_ok=True)
     out = EXEC_DIR / script_name
     out.write_text(script_content, encoding="utf-8")
@@ -1700,17 +1767,13 @@ def prompt_workspace_ids():
 
 
 def _extract_dsn(raw):
-    """Извлекает DSN из строки результата `env | grep ...` вида
-    'YGGDRASIL_DATABASE_URL=postgresql://...' — отбрасывает часть до первого '='.
-    Если введено сразу DSN без префикса — принимается как есть."""
+    """DSN из строки 'ИМЯ_ПЕРЕМЕННОЙ=postgresql://...'; чистый DSN принимается как есть."""
     value = raw.strip()
     if not value:
         return None
-    # Убираем кавычки, если пользователь скопировал с ними.
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):  # скопировано с кавычками
         value = value[1:-1].strip()
-    # Отбрасываем префикс 'ИМЯ_ПЕРЕМЕННОЙ=' (если строка не DSN сама по себе).
-    if not value.startswith(("postgresql://", "postgres://")) and "=" in value:
+    if not value.startswith(("postgresql://", "postgres://")) and "=" in value:  # префикс ИМЯ_ПЕРЕМЕННОЙ=
         value = value.split("=", 1)[1].strip()
     if not (value.startswith("postgresql://") or value.startswith("postgres://")):
         return None
@@ -1718,13 +1781,7 @@ def _extract_dsn(raw):
 
 
 def _expand_dns_suffix(url, folder):
-    """Дополняет хост DSN полным DNS-суффиксом неймспейса стенда (folder = stand_name).
-
-    Поды приложений отдают короткое имя сервиса (например yggdrasil-postgres-rw) —
-    оно резолвится только изнутри неймспейса стенда. Скрипт запускается из
-    debug-пода в другом неймспейсе, поэтому суффикс добавляется всегда:
-    yggdrasil-postgres-rw -> yggdrasil-postgres-rw.<stand_name>.svc.cluster.local.
-    Это штатное действие, не предупреждение."""
+    """Короткому хосту DSN дополняется суффикс <stand_name>.svc.cluster.local (под отдаёт имя сервиса без неймспейса)."""
     if not folder:
         return url
     m = re.match(r"^(postgresql?://[^@/]+@)([^:/]+)(:\d+)?(/.*)$", url)
@@ -1803,8 +1860,7 @@ def prompt_db_urls(selected, zone, need_heimdall=True):
     if need_heimdall:
         hm = _resolve_db_url(hm_raw, "heimdall_auth", "heimdall-auth-postgres-rw", "heimdall_auth", folder, "HEIMDALL_DATABASE_URL")
 
-    # Сохраняем в кэш только распознанные DSN (без шаблонов с <ПАРОЛЬ>)
-    if "<ПАРОЛЬ>" not in ygg and "<ПАРОЛЬ>" not in (hm or ""):
+    if "<ПАРОЛЬ>" not in ygg and "<ПАРОЛЬ>" not in (hm or ""):  # в кэш — только распознанные DSN
         entry = {"yggdrasil": ygg, "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M")}
         if need_heimdall:
             entry["heimdall"] = hm
@@ -1816,10 +1872,7 @@ def prompt_db_urls(selected, zone, need_heimdall=True):
 
 
 def resolve_zone(selected):
-    """Определяет зону автоматически из результата поиска (stand_dir = cce-prod-st02).
-
-    Сначала точное совпадение имени кластера, затем — по коду (st02, tb01, tb04) в конце.
-    Если зона есть в EXTRA_ZONES — сливает дополнительные поля (app_template и др.)."""
+    """Зона из stand_dir: точное имя кластера или код в конце; поля EXTRA_ZONES сливаются."""
     cluster = selected.get("stand_dir", "")
     code = cluster.rsplit("-", 1)[-1] if cluster else ""
     for z in WORKSPACE_ZONES:
@@ -1863,16 +1916,13 @@ def _prompt_dry_run():
 
 
 def _run_with_dry_run(zone, script_name, generate, skip_note):
-    """Общий поток: DRY RUN → сохранение скрипта → (опционально) боевой запуск.
-
-    generate(dry_run) возвращает текст скрипта."""
+    """DRY RUN → сохранение скрипта → (опционально) боевой запуск; generate(dry_run) — текст скрипта."""
     dry_run = _prompt_dry_run()
     if dry_run is None:
         return
     open_workspace_exec(zone["code"], generate(dry_run), script_name, zone.get("argocd_base"))
     if not dry_run:
         return
-    # После DRY RUN — предлагаем доделать в боевом режиме.
     print_info("После сверки вывода DRY RUN — запустите боевой режим.")
     apply_now = input(f"{action_label()} Запустить в боевом режиме сейчас? ({colorize('yes', CYAN)}/{colorize('no', CYAN)}): ").strip().lower()
     if apply_now in ("yes", "y"):
@@ -1953,9 +2003,7 @@ def ws_remove_user(selected, zone):
 
 
 def ws_add_base_spaces(selected, zone):
-    """Добавляет пользователей в базовые пространства (только стенд demo).
-
-    ID пространств и DSN — константы, от пользователя нужен только email (можно несколько)."""
+    """Базовые пространства (только стенд demo); ID и DSN — константы, нужен только email."""
     if (selected.get("cowork_subdomain") or "").lower() != DEMO_STAND_SUBDOMAIN:
         print_warn(f"Опция доступна только для стенда {DEMO_STAND_SUBDOMAIN} "
                    f"(текущий: {selected.get('cowork_subdomain') or 'не определён'}).")
@@ -1987,8 +2035,7 @@ _WS_ACTIONS = {
 
 
 def workspace_menu(selected):
-    # Пункт 5 виден только на стенде demo — для остальных стендов меню короче.
-    is_demo = (selected.get("cowork_subdomain") or "").lower() == DEMO_STAND_SUBDOMAIN
+    is_demo = (selected.get("cowork_subdomain") or "").lower() == DEMO_STAND_SUBDOMAIN  # пункт 6 — только demo
     actions = dict(_WS_ACTIONS)
     if not is_demo:
         actions.pop("6")
@@ -2124,8 +2171,34 @@ def main():
         repo_root = get_repo_root(script_dir)
     except FileNotFoundError as e:
         print_error(str(e))
-        sys.exit(1)
+        print_info("Попробуем найти репозиторий вручную.")
+        repo_root = _prompt_repo_root(script_dir)
+    while not _repo_has_content(repo_root):
+        print_error(f"Папка {repo_root} не содержит данных репозитория "
+                    f"(ожидаются папки: {', '.join(ALLOWED_REPO_DIRS)}).")
+        print_info("Возможные причины: содержимое папки перенесли в другое место, "
+                   "клонирование прервалось или это не та папка.")
+        print_action("Что делать?")
+        print("  1. Указать другой путь к репозиторию")
+        print("  2. Склонировать репозиторий в эту папку")
+        print("  3. Выйти")
+        choice = input_with_timeout("Выберите вариант (1-3): ", 300)
+        if choice is None or choice.strip() == "3":
+            print_warn("Завершение работы.")
+            sys.exit(1)
+        if choice.strip() == "1":
+            repo_root = _prompt_repo_root(script_dir)
+            continue
+        if choice.strip() == "2":
+            if not _clone_repo(repo_root):
+                print_info("Если папка не пустая — очистите её вручную и повторите попытку.")
+                continue
+            _save_repo_path(repo_root, quiet=True)
+            print_info(f"Репозиторий склонирован в {repo_root}, путь сохранён.")
+            break
+        print_warn("Неверный ввод, попробуйте снова.")
 
+    _auto_restore_repo(repo_root)
     pull_result = pull_repo(repo_root, script_dir / "news")
     zones = _init_zones(repo_root)
     _verify_zones(repo_root, zones)
