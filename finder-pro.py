@@ -62,7 +62,7 @@ def open_file(path):
         webbrowser.open(Path(path).resolve().as_uri())
 
 # --- Версия ---
-VERSION = "v2.7.14"
+VERSION = "v2.7.15"
 
 # --- Пути и константы ---
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
@@ -382,7 +382,11 @@ def _auto_restore_repo(repo_root):
     modified = [l for l in lines if 'D' not in l[:2] and not l.startswith("??")]
     if deleted_paths:
         print_warn(f"Обнаружено {len(deleted_paths)} удалённых файла(ов) "
-                   f"(возможно, содержимое переносили вручную). Восстанавливаю...")
+                   f"(возможно, содержимое переносили вручную).")
+        answer = input_with_timeout("Восстановить их из последнего коммита? (yes/no): ", 60)
+        if not (answer and answer.lower() in ("y", "yes")):
+            print_info("Восстановление пропущено — поиск продолжится по текущему состоянию репозитория.")
+            return
         # git restore только удалённые файлы, не трогая изменённые
         res = _git(repo_root, "restore", "--", *deleted_paths)
         if res.returncode != 0:
