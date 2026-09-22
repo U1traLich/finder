@@ -62,7 +62,7 @@ def open_file(path):
         webbrowser.open(Path(path).resolve().as_uri())
 
 # --- Версия ---
-VERSION = "v2.7.15"
+VERSION = "v2.7.17"
 
 # --- Пути и константы ---
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
@@ -673,7 +673,18 @@ _CHANGE_OWNER_TEMPLATE = '''import asyncio
 import os
 import sys
 
-import asyncpg
+try:
+    import asyncpg
+except ImportError:
+    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
+    import subprocess
+    import sys as _sys
+    try:
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
+    except subprocess.CalledProcessError:
+        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
+    import asyncpg
 
 OWNER_ROLE_ID = "workspace.owner"
 MEMBER_ROLE_ID = "workspace.member"
@@ -918,7 +929,18 @@ if __name__ == "__main__":
 _MASS_ADD_TEMPLATE = '''import asyncio
 import os
 
-import asyncpg
+try:
+    import asyncpg
+except ImportError:
+    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
+    import subprocess
+    import sys as _sys
+    try:
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
+    except subprocess.CalledProcessError:
+        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
+    import asyncpg
 
 MEMBER_ROLE_ID = "workspace.member"
 WORKSPACE_NAMESPACE = "workspace"
@@ -1110,7 +1132,18 @@ _ADD_USER_TEMPLATE = '''import asyncio
 import os
 import sys
 from datetime import datetime, timezone
-import asyncpg
+try:
+    import asyncpg
+except ImportError:
+    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
+    import subprocess
+    import sys as _sys
+    try:
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
+    except subprocess.CalledProcessError:
+        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
+    import asyncpg
 
 MEMBER_ROLE_ID = "workspace.member"
 WORKSPACE_NAMESPACE = "workspace"
@@ -1345,7 +1378,18 @@ if __name__ == "__main__":
 _REMOVE_USER_TEMPLATE = '''import asyncio
 import os
 import sys
-import asyncpg
+try:
+    import asyncpg
+except ImportError:
+    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
+    import subprocess
+    import sys as _sys
+    try:
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
+    except subprocess.CalledProcessError:
+        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
+    import asyncpg
 WORKSPACE_NAMESPACE = "workspace"
 WORKSPACE_IDS = [
 __IDS__
@@ -1627,7 +1671,18 @@ _LIST_WORKSPACES_TEMPLATE = '''import asyncio
 import os
 import sys
 
-import asyncpg
+try:
+    import asyncpg
+except ImportError:
+    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
+    import subprocess
+    import sys as _sys
+    try:
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
+    except subprocess.CalledProcessError:
+        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
+    import asyncpg
 
 
 def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
@@ -1719,6 +1774,101 @@ def generate_remove_user_script(workspace_ids, user_emails, dry_run, ygg_url, hm
 
 def generate_list_workspaces_script(ygg_url):
     return _LIST_WORKSPACES_TEMPLATE.replace("__YGG__", json.dumps(ygg_url))
+
+# --- Проверка пользователей без ролей (heimdall_auth) ---
+_FIX_EMPTY_ROLES_TEMPLATE = '''import asyncio
+import os
+try:
+    import asyncpg
+except ImportError:
+    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
+    import subprocess
+    import sys as _sys
+    try:
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
+    except subprocess.CalledProcessError:
+        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
+        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
+    import asyncpg
+# Роль «Участник» (global role id в heimdall_auth)
+MEMBER_ROLE_ID = "6441ce25-27e5-436a-ae2d-374d080dcab1"
+# Исключения: тестовый аккаунт и внешние пользователи не трогаем
+EXCLUDE_EMAILS = ["cp-test@gigab2b.ru"]
+EXTERNAL_PREFIX = "ext-"
+# True — только показать, кто без ролей, ничего не менять
+DRY_RUN = __DRY__
+DEFAULT_HEIMDALL_URL = __HM__
+def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
+    for name in variable_names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return default
+async def main() -> None:
+    heimdall_url = get_database_url(("HEIMDALL_DATABASE_URL", "AUTH_DATABASE_URL"), DEFAULT_HEIMDALL_URL)
+    connection = await asyncpg.connect(heimdall_url)
+    try:
+        rows = await connection.fetch(
+            """
+            SELECT pu.provider_user_id::text AS user_id, pu.email_normalized AS email
+            FROM provider_users pu
+            WHERE pu.email_normalized IS NOT NULL
+              AND btrim(pu.email_normalized) <> ''
+              AND lower(pu.email_normalized) <> 'cp-test@gigab2b.ru'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM user_global_roles ugr
+                  WHERE ugr.user_id = pu.provider_user_id
+              )
+            ORDER BY pu.email_normalized
+            """
+        )
+        # Фильтр ext-* на стороне Python: в DRY RUN показываем всех, но помечаем
+        candidates = []
+        skipped_external = 0
+        for row in rows:
+            email = (row["email"] or "").lower()
+            if email.startswith(EXTERNAL_PREFIX):
+                skipped_external += 1
+                continue
+            candidates.append(dict(row))
+        print(f"Пользователей без глобальной роли: {len(rows)}")
+        if skipped_external:
+            print(f"Среди них внешних (ext-*), которые НЕ получат роль: {skipped_external}")
+        if not candidates:
+            print("Никому выдавать роль не нужно.")
+            return
+        print()
+        for row in candidates:
+            print(f"  {row['email']}")
+            print(f"    user_id: {row['user_id']}")
+        print()
+        if DRY_RUN:
+            print(f"[DRY RUN] Будут добавлены записи в user_global_roles: {len(candidates)} шт.")
+            print("[DRY RUN] Ничего не изменено. Для боевого запуска запустите скрипт с DRY_RUN=False.")
+            return
+        inserted = 0
+        for row in candidates:
+            res = await connection.execute(
+                """
+                INSERT INTO user_global_roles (user_id, role_id, source, assigned_by)
+                VALUES ($1, $2, 'local', 'migration:workspaces-access-backfill')
+                ON CONFLICT (user_id, role_id) DO NOTHING
+                """,
+                row["user_id"], MEMBER_ROLE_ID,
+            )
+            if res == "INSERT 1":
+                inserted += 1
+        print(f"Добавлено записей в user_global_roles: {inserted} из {len(candidates)}.")
+    finally:
+        await connection.close()
+if __name__ == "__main__":
+    asyncio.run(main())
+'''
+def generate_fix_empty_roles_script(dry_run, hm_url):
+    return (_FIX_EMPTY_ROLES_TEMPLATE
+            .replace("__DRY__", "True" if dry_run else "False")
+            .replace("__HM__", json.dumps(hm_url)))
 
 
 def build_db_url(user, host, folder, db):
@@ -1875,6 +2025,35 @@ def prompt_db_urls(selected, zone, need_heimdall=True):
     return ygg, hm
 
 
+def prompt_heimdall_url(selected, zone):
+    """Запрашивает DSN heimdall_auth (кэш → ArgoCD → ввод); возвращает URL."""
+    folder = selected.get("folder", "")
+    stand_name = selected.get("stand_name") or folder
+    cache = _load_dsn_cache()
+    cached = cache.get(folder) or {}
+    cached_hm = cached.get("heimdall")
+    if cached_hm:
+        saved_at = cached.get("saved_at", "дата неизвестна")
+        print_info(f"Найден кэш DSN heimdall для стенда {folder} (сохранён {saved_at}).")
+        choice = input(f"{action_label()} Enter — использовать из кэша, d — ввести заново: ").strip().lower()
+        if choice != "d":
+            print_info(f"Использую DSN heimdall из кэша для стенда {folder}.")
+            return cached_hm
+    open_pod_exec._opened = False
+    print_info("Открываю приложение heimdall в ArgoCD — скопируйте AUTH_DATABASE_URL.")
+    open_pod_exec(zone["code"], stand_name, "heimdall", zone.get("app_template"), zone.get("argocd_base"))
+    hm_raw = input(f"{action_label()} Вставьте строку целиком (в поде: {colorize('env | grep AUTH_DATABASE_URL', CYAN)}): ").strip()
+    hm = _resolve_db_url(hm_raw, "heimdall_auth", "heimdall-auth-postgres-rw", "heimdall_auth", folder, "HEIMDALL_DATABASE_URL")
+    if "<ПАРОЛЬ>" not in hm:
+        entry = dict(cached)
+        entry["heimdall"] = hm
+        entry["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+        cache[folder] = entry
+        _save_dsn_cache(cache)
+        print_info(f"DSN heimdall сохранён в кэш ({DSN_CACHE_PATH}) — в следующий раз вводить не придётся.")
+    return hm
+
+
 def resolve_zone(selected):
     """Зона из stand_dir: точное имя кластера или код в конце; поля EXTRA_ZONES сливаются."""
     cluster = selected.get("stand_dir", "")
@@ -2027,6 +2206,15 @@ def ws_list_workspaces(selected, zone):
     script = generate_list_workspaces_script(ygg)
     open_workspace_exec(zone["code"], script, "list_workspaces.py", zone.get("argocd_base"))
 
+def fix_empty_roles(selected, zone):
+    """Пункт 7: пользователи без глобальной роли (heimdall_auth) → роль «Участник»."""
+    hm = prompt_heimdall_url(selected, zone)
+    _run_with_dry_run(
+        zone, "fix_empty_roles.py",
+        lambda dry: generate_fix_empty_roles_script(dry, hm),
+        "Скрипт с DRY_RUN=True сохранён в exec/.",
+    )
+
 # --- Меню ---
 _WS_ACTIONS = {
     "1": ws_change_owner,
@@ -2079,9 +2267,10 @@ def stand_action_menu(selected, script_dir):
         print("  4. Запустить FAQ-агента")
         print("  5. Открыть конфигурацию стенда")
         print("  6. Управление пространствами")
+        print("  7. Проверка пользователей без ролей (heimdall)")
         print("  0. Вернуться к поиску")
         print()
-        action = input_with_timeout("Выберите действие (0-6): ", 300)
+        action = input_with_timeout("Выберите действие (0-7): ", 300)
         if action is None:
             print_warn("Таймаут ожидания. Возврат к поиску.")
             break
@@ -2100,6 +2289,12 @@ def stand_action_menu(selected, script_dir):
             open_stand_config(selected)
         elif action == "6":
             workspace_menu(selected)
+        elif action == "7":
+            zone = resolve_zone(selected)
+            if zone:
+                fix_empty_roles(selected, zone)
+            else:
+                print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
         else:
             print_warn("Неверный ввод, попробуйте снова.")
 
