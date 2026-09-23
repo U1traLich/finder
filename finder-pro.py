@@ -1775,7 +1775,7 @@ def generate_remove_user_script(workspace_ids, user_emails, dry_run, ygg_url, hm
 def generate_list_workspaces_script(ygg_url):
     return _LIST_WORKSPACES_TEMPLATE.replace("__YGG__", json.dumps(ygg_url))
 
-# --- Проверка пользователей без ролей (heimdall_auth) ---
+# --- Починить роли на стенде (heimdall_auth) ---
 _FIX_EMPTY_ROLES_TEMPLATE = '''import asyncio
 import os
 try:
@@ -2267,7 +2267,7 @@ def stand_action_menu(selected, script_dir):
         print("  4. Запустить FAQ-агента")
         print("  5. Открыть конфигурацию стенда")
         print("  6. Управление пространствами")
-        print("  7. Проверка пользователей без ролей (heimdall)")
+        print("  7. Починить роли на стенде")
         print("  0. Вернуться к поиску")
         print()
         action = input_with_timeout("Выберите действие (0-7): ", 300)
