@@ -9,8 +9,10 @@ import subprocess
 import sys
 import threading
 import time
+import zipfile
+import zipfile
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 # --- Runtime mode: Windows / WSL ---
 RUNTIME_MODE = None
@@ -62,7 +64,9 @@ def open_file(path):
         webbrowser.open(Path(path).resolve().as_uri())
 
 # --- Версия ---
-VERSION = "v2.7.17"
+VERSION = "v4.0.21"
+# Единый таймаут ожидания ввода для всех меню (секунды)
+INPUT_TIMEOUT = 300
 
 # --- Пути и константы ---
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"
@@ -74,6 +78,10 @@ CONFIG = "config.yaml"
 ZONES_DIR = Path(__file__).parent / "zones"
 ZONES_CONFIG_FILE = ZONES_DIR / "zones_config.json"
 EXEC_DIR = Path(__file__).parent / "exec"
+ACCOUNTS_DIR = Path(__file__).parent / "accounts"  # сюда складываются Excel с email/password (пункт 9)
+REPO_CHECK_INTERVAL = 15 * 60  # фоновая проверка изменений в репозитории раз в 15 минут
+REPO_FAST_CHECK_INTERVAL = 30   # ускоренная проверка, когда накопилось много изменений
+REPO_FAST_CHECK_THRESHOLD = 10  # порог: больше N коммитов — не ждём полного интервала
 
 # Зоны подменю «Управление пространствами»: code — суффикс ArgoCD, cluster — имя кластера в репозитории.
 WORKSPACE_ZONES = [
@@ -168,50 +176,118 @@ def action_label():
 
 # --- Анимация спиннера ---
 def animate_spinner(stop_event):
-    spinner = itertools.cycle(['\\', '|', '/', '-'])
+    spinner = itertools.cycle(["\\", "|", "/", "-"])
     while not stop_event.is_set():
         sys.stdout.write(next(spinner) + '\b')
         sys.stdout.flush()
         time.sleep(0.1)
 
 # --- Ввод с таймаутом ---
+# Пауза после последнего символа (без Enter), после которой ввод считается завершённым.
+_INPUT_SETTLE_SECONDS = 2.0
+
+
 def input_with_timeout(prompt, timeout_seconds):
-    """Ввод строки с таймаутом; None при истечении."""
+    """Ввод строки с таймаутом; None при истечении.
+
+    Единое правило завершения для Windows и Unix:
+    - до первого символа действует полный таймаут бездействия
+      (любая клавиша/поступление данных сбрасывает отсчёт);
+    - после ввода строка завершается переносом строки (хвост 0.3 с на
+      случай \\r\\n) либо паузой _INPUT_SETTLE_SECONDS после последнего
+      символа, если Enter не было (медленная печать, вставка без
+      завершающего переноса)."""
     print(prompt, end='', flush=True)
     if sys.platform == "win32":
         import msvcrt
-        chars = []
-        start = time.time()
+        parts = []
+        buf = bytearray()
+        last_was_newline = False
+        idle_since = time.time()
         while True:
-            if time.time() - start > timeout_seconds:
-                print()
-                return None
             if msvcrt.kbhit():
+                # getwche — С ЭХО: пользователь видит то, что вставляет/печатает.
                 ch = msvcrt.getwche()
-                if ch in ('\r', '\n'):
+                if ch == "\x03":  # Ctrl-C
                     print()
-                    break
-                elif ch == '\b':
-                    if chars:
-                        chars.pop()
-                        sys.stdout.write('\b \b')
-                        sys.stdout.flush()
+                    raise KeyboardInterrupt
+                if ch in ("\r", "\n"):
+                    # Двойное окончание строки (\r\n из буфера обмена) — считаем за одно.
+                    if not last_was_newline:
+                        parts.append(bytes(buf).decode("utf-8", errors="replace"))
+                        buf.clear()
+                    last_was_newline = True
                 else:
-                    chars.append(ch)
-            time.sleep(0.05)
-        return ''.join(chars).strip()
+                    buf += ch.encode("utf-8")
+                    last_was_newline = False
+                idle_since = time.time()
+                continue
+            idle = time.time() - idle_since
+            if not (parts or buf):
+                # До первого символа — полный таймаут бездействия.
+                if idle > timeout_seconds:
+                    print()
+                    return None
+            elif idle > (0.3 if last_was_newline else _INPUT_SETTLE_SECONDS):
+                # Перенос строки получен (хвост 0.3 с) либо пауза без Enter —
+                # ввод завершён (медленная печать/вставка без переноса).
+                break
+            time.sleep(0.02)
+        if buf:
+            parts.append(bytes(buf).decode("utf-8", errors="replace"))
+        print()
+        text = "\n".join(parts).strip()
+        return text if text else None
     else:
-        import select
-        ready, _, _ = select.select([sys.stdin], [], [], timeout_seconds)
-        if ready:
-            line = sys.stdin.readline()
-            if line:
-                return line.strip()
-            else:
-                return None
-        else:
+        import os, select
+        fd = sys.stdin.fileno()
+        # cbreak-режим — только для реального терминала; при пайпе/файле читаем как есть
+        use_cbreak = False
+        old_settings = None
+        try:
+            import termios, tty
+            old_settings = termios.tcgetattr(fd)
+            # cbreak для построчного чтения с таймаутом; ЭХО оставляем включённым —
+            # пользователь должен видеть то, что вставляет.
+            tty.setcbreak(fd)
+            use_cbreak = True
+        except (ImportError, termios.error, OSError, AttributeError):
+            pass
+        try:
+            chunks = []
+            got_data = False
+            ended_with_newline = False
+            idle_since = time.time()
+            while True:
+                idle = time.time() - idle_since
+                if not got_data:
+                    # До первых данных — полный таймаут бездействия.
+                    if idle > timeout_seconds:
+                        break
+                    wait = min(timeout_seconds - idle, 0.15)
+                else:
+                    # После ввода: хвост 0.3 с после переноса строки либо
+                    # пауза _INPUT_SETTLE_SECONDS без переноса — ввод завершён.
+                    limit = 0.3 if ended_with_newline else _INPUT_SETTLE_SECONDS
+                    if idle > limit:
+                        break
+                    wait = min(limit - idle, 0.15)
+                ready, _, _ = select.select([fd], [], [], max(wait, 0.01))
+                if not ready:
+                    continue
+                chunk = os.read(fd, 4096)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                got_data = True
+                ended_with_newline = chunk[-1:] in (b"\n", b"\r")
+                idle_since = time.time()
+            text = b"".join(chunks).decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n").strip()
             print()
-            return None
+            return text if text else None
+        finally:
+            if use_cbreak and old_settings is not None:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 # --- Логотип GigaFinder (ASCII-арт) ---
 _LOGO_LINES = [
@@ -234,122 +310,169 @@ def print_logo():
     print(f"  Версия: {VERSION}")
 
 # --- Конфигурация зон ---
-def load_zones():
-    if not ZONES_CONFIG_FILE.exists():
-        return []
-    try:
-        zones = json.loads(ZONES_CONFIG_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
-    if not isinstance(zones, list):
-        return []
-    # Защита: из конфига берём только зоны в допустимых корневых папках.
-    zones = [z for z in zones if isinstance(z, dict) and _zone_path_allowed(z.get("path", ""))]
-    # JSON хранит кортежи как списки — приводим stand_prefixes к tuple.
-    for zone in zones:
-        if "stand_prefixes" in zone:
-            zone["stand_prefixes"] = tuple(zone["stand_prefixes"])
-    # Автокоррекция URL, если ранее был создан файл с багом.
-    corrected = False
-    for zone in zones:
-        if "url" in zone and "argocd-cce-prod-" in zone["url"]:
-            code = zone["path"].split("/")[-1].rsplit("-", 1)[-1]
-            zone["url"] = f"https://argocd-{code}.cowork.ru/applications/cowork/{{folder}}?resource="
-            corrected = True
-    if corrected:
-        save_zones(zones)
-    return zones
+class ZoneManager:
+    """Зоны Finder: конфигурация zones_config.json + синхронизация с репозиторием."""
+
+    def __init__(self, config_file):
+        self.config_file = Path(config_file)
 
 
-def save_zones(zones):
-    ZONES_DIR.mkdir(parents=True, exist_ok=True)
-    ZONES_CONFIG_FILE.write_text(json.dumps(zones, ensure_ascii=False, indent=2), encoding="utf-8")
+    def load_zones(self):
+        if not self.config_file.exists():
+            return []
+        try:
+            zones = json.loads(self.config_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        if not isinstance(zones, list):
+            return []
+        # Защита: из конфига берём только зоны в допустимых корневых папках.
+        zones = [z for z in zones if isinstance(z, dict) and _zone_path_allowed(z.get("path", ""))]
+        # JSON хранит кортежи как списки — приводим stand_prefixes к tuple.
+        for zone in zones:
+            if "stand_prefixes" in zone:
+                zone["stand_prefixes"] = tuple(zone["stand_prefixes"])
+        # Автокоррекция URL, если ранее был создан файл с багом.
+        corrected = False
+        for zone in zones:
+            if "url" in zone and "argocd-cce-prod-" in zone["url"]:
+                code = zone["path"].split("/")[-1].rsplit("-", 1)[-1]
+                zone["url"] = f"https://argocd-{code}.cowork.ru/applications/cowork/{{folder}}?resource="
+                corrected = True
+        if corrected:
+            self.save_zones(zones)
+        return zones
 
+    def save_zones(self, zones):
+        ZONES_DIR.mkdir(parents=True, exist_ok=True)
+        self.config_file.write_text(json.dumps(zones, ensure_ascii=False, indent=2), encoding="utf-8")
 
-def make_zone_from_cluster(cluster_name):
-    # cluster_name: "cce-prod-st02"
-    code = cluster_name.rsplit("-", 1)[-1]  # st02, tb01, tb04
-    return {
-        "path": f"cce-prod/cowork/clusters/{cluster_name}",
-        "label": cluster_name,
-        "url": f"https://argocd-{code}.cowork.ru/applications/cowork/{{folder}}?resource="
-    }
+    @staticmethod
+    def make_zone_from_cluster(cluster_name):
+        # cluster_name: "cce-prod-st02"
+        code = cluster_name.rsplit("-", 1)[-1]  # st02, tb01, tb04
+        return {
+            "path": f"cce-prod/cowork/clusters/{cluster_name}",
+            "label": cluster_name,
+            "url": f"https://argocd-{code}.cowork.ru/applications/cowork/{{folder}}?resource="
+        }
 
+    @staticmethod
+    def get_remote_clusters(repo_root):
+        clusters_path = repo_root / "cce-prod/cowork/clusters"
+        if not clusters_path.exists():
+            return []
+        return sorted(d.name for d in clusters_path.iterdir() if d.is_dir())
 
-def get_remote_clusters(repo_root):
-    clusters_path = repo_root / "cce-prod/cowork/clusters"
-    if not clusters_path.exists():
-        return []
-    return sorted(d.name for d in clusters_path.iterdir() if d.is_dir())
+    def discover_and_save_zones(self, repo_root):
+        zones = [self.make_zone_from_cluster(c) for c in self.get_remote_clusters(repo_root)]
+        zones += [dict(z) for z in EXTRA_ZONES if _zone_path_allowed(z["path"])]
+        self.save_zones(zones)
+        return zones
 
+    def check_and_update_zones(self, repo_root, zones):
+        remote_clusters = self.get_remote_clusters(repo_root)
+        # Устаревшие зоны (больше не актуальны): убираем из конфига до проверки доступности.
+        allowed_paths = {f"cce-prod/cowork/clusters/{c}" for c in remote_clusters}
+        allowed_paths |= {z["path"] for z in EXTRA_ZONES}
+        stale = [z for z in zones if z["path"] not in allowed_paths]
+        if stale:
+            zones[:] = [z for z in zones if z["path"] in allowed_paths]
+            self.save_zones(zones)
+            for z in stale:
+                print_info(f"Удалена устаревшая зона из конфигурации: {z['label']}.")
+        known = {z["path"].split("/")[-1] for z in zones}
+        for zone in zones:
+            if zone["path"].startswith("cce-prod/cowork/clusters/"):
+                if zone["path"].split("/")[-1] not in remote_clusters:
+                    print_error(f"Кластер {zone['label']} не доступен.")
+            elif not (repo_root / zone["path"]).exists():
+                print_error(f"Зона {zone['label']} не доступна (папка {zone['path']}).")
+        # Нестандартные зоны: добавляем в конфиг, если их ещё нет,
+        # либо синхронизируем поля (например, stand_prefixes), если они изменились.
+        known_paths = {z["path"] for z in zones}
+        for extra in EXTRA_ZONES:
+            if not _zone_path_allowed(extra["path"]):
+                print_error(f"Зона {extra['label']} пропущена: путь вне {ALLOWED_REPO_DIRS}.")
+                continue
+            if extra["path"] not in known_paths:
+                zones.append(dict(extra))
+                self.save_zones(zones)
+                print_info(f"Добавлена зона: {extra['label']} ({extra['path']}).")
+            else:
+                for zone in zones:
+                    if zone["path"] != extra["path"]:
+                        continue
+                    # JSON хранит кортежи как списки — нормализуем перед сравнением.
+                    norm_zone = dict(zone)
+                    norm_extra = dict(extra)
+                    for key in ("stand_prefixes",):
+                        if key in norm_zone:
+                            norm_zone[key] = tuple(norm_zone[key])
+                        if key in norm_extra:
+                            norm_extra[key] = tuple(norm_extra[key])
+                    if norm_zone != norm_extra:
+                        zones[zones.index(zone)] = dict(extra)
+                        self.save_zones(zones)
+                        print_info(f"Обновлена зона: {extra['label']} ({extra['path']}).")
+                    break
 
-def discover_and_save_zones(repo_root):
-    zones = [make_zone_from_cluster(c) for c in get_remote_clusters(repo_root)]
-    zones += [dict(z) for z in EXTRA_ZONES if _zone_path_allowed(z["path"])]
-    save_zones(zones)
-    return zones
+        updated = False
+        for cluster in (c for c in remote_clusters if c not in known):
+            print_warn(f"Обнаружен новый кластер: {cluster}")
+            answer = input_with_timeout("Добавить в конфигурацию Finder новый кластер? (yes/no): ", INPUT_TIMEOUT)
+            if answer and answer.lower() in ("y", "yes"):
+                zones.append(self.make_zone_from_cluster(cluster))
+                self.save_zones(zones)
+                print_info(f"Кластер {cluster} добавлен в конфигурацию.")
+                updated = True
+            else:
+                print_info(f"Кластер {cluster} пропущен.")
+        if updated:
+            print_info("Конфигурация обновлена.")
 
-
-def check_and_update_zones(repo_root, zones):
-    remote_clusters = get_remote_clusters(repo_root)
-    # Устаревшие зоны (больше не актуальны): убираем из конфига до проверки доступности.
-    allowed_paths = {f"cce-prod/cowork/clusters/{c}" for c in remote_clusters}
-    allowed_paths |= {z["path"] for z in EXTRA_ZONES}
-    stale = [z for z in zones if z["path"] not in allowed_paths]
-    if stale:
-        zones[:] = [z for z in zones if z["path"] in allowed_paths]
-        save_zones(zones)
-        for z in stale:
-            print_info(f"Удалена устаревшая зона из конфигурации: {z['label']}.")
-    known = {z["path"].split("/")[-1] for z in zones}
-    for zone in zones:
-        if zone["path"].startswith("cce-prod/cowork/clusters/"):
-            if zone["path"].split("/")[-1] not in remote_clusters:
-                print_error(f"Кластер {zone['label']} не доступен.")
-        elif not (repo_root / zone["path"]).exists():
-            print_error(f"Зона {zone['label']} не доступна (папка {zone['path']}).")
-    # Нестандартные зоны: добавляем в конфиг, если их ещё нет,
-    # либо синхронизируем поля (например, stand_prefixes), если они изменились.
-    known_paths = {z["path"] for z in zones}
-    for extra in EXTRA_ZONES:
-        if not _zone_path_allowed(extra["path"]):
-            print_error(f"Зона {extra['label']} пропущена: путь вне {ALLOWED_REPO_DIRS}.")
-            continue
-        if extra["path"] not in known_paths:
-            zones.append(dict(extra))
-            save_zones(zones)
-            print_info(f"Добавлена зона: {extra['label']} ({extra['path']}).")
+    def init(self, repo_root):
+        if not self.config_file.exists():
+            zones = self.discover_and_save_zones(repo_root)
+            print_info(f"Создан файл zones_config.json с {len(zones)} кластерами.")
         else:
-            for zone in zones:
-                if zone["path"] != extra["path"]:
-                    continue
-                # JSON хранит кортежи как списки — нормализуем перед сравнением.
-                norm_zone = dict(zone)
-                norm_extra = dict(extra)
-                for key in ("stand_prefixes",):
-                    if key in norm_zone:
-                        norm_zone[key] = tuple(norm_zone[key])
-                    if key in norm_extra:
-                        norm_extra[key] = tuple(norm_extra[key])
-                if norm_zone != norm_extra:
-                    zones[zones.index(zone)] = dict(extra)
-                    save_zones(zones)
-                    print_info(f"Обновлена зона: {extra['label']} ({extra['path']}).")
-                break
+            zones = self.load_zones()
+            self.check_and_update_zones(repo_root, zones)
+        return zones
 
-    updated = False
-    for cluster in (c for c in remote_clusters if c not in known):
-        print_warn(f"Обнаружен новый кластер: {cluster}")
-        answer = input_with_timeout("Добавить в конфигурацию Finder новый кластер? (yes/no): ", 60)
-        if answer and answer.lower() in ("y", "yes"):
-            zones.append(make_zone_from_cluster(cluster))
-            save_zones(zones)
-            print_info(f"Кластер {cluster} добавлен в конфигурацию.")
-            updated = True
-        else:
-            print_info(f"Кластер {cluster} пропущен.")
-    if updated:
-        print_info("Конфигурация обновлена.")
+    def verify(self, repo_root, zones):
+        """Самопроверка при старте: каждая зона существует, читаема и содержит конфиги."""
+        print_info("Самопроверка доступности зон:")
+        missing = []
+        unreadable = []
+        empty = []
+        for zone in zones:
+            base = repo_root / zone["path"]
+            if not base.exists():
+                missing.append(zone)
+                print(f"  {_tag('ERROR', RED)} {zone['label']}: папка {zone['path']} не найдена")
+                continue
+            try:
+                stand_prefixes = tuple(zone.get("stand_prefixes", ("cowork-",)))
+                configs = [p for p in base.rglob(CONFIG) if p.parent.name.startswith(stand_prefixes)]
+            except OSError as error:
+                unreadable.append(zone)
+                print(f"  {_tag('ERROR', RED)} {zone['label']}: папка {zone['path']} не читается ({error})")
+                continue
+            if not configs:
+                empty.append(zone)
+                print(f"  {_tag('WARN', YELLOW)} {zone['label']}: папка {zone['path']} не содержит config.yaml")
+            else:
+                print(f"  {_tag('OK', GREEN)} {zone['label']}: {len(configs)} конфиг(ов) в {zone['path']}")
+        if missing or unreadable:
+            print_error("Ошибка: некоторые зоны недоступны. Продолжение невозможно.")
+            sys.exit(1)
+        if empty:
+            print(f"  {_tag('WARN', YELLOW)} В некоторых зонах нет конфигов — поиск по ним вернёт пусто.")
+        print_info(f"Самопроверка завершена: зон проверено {len(zones)}, ошибок {len(missing) + len(unreadable)}.")
+
+
+ZONES = ZoneManager(ZONES_CONFIG_FILE)
 
 # --- Репозиторий argocd ---
 def get_repo_root(start):
@@ -383,7 +506,7 @@ def _auto_restore_repo(repo_root):
     if deleted_paths:
         print_warn(f"Обнаружено {len(deleted_paths)} удалённых файла(ов) "
                    f"(возможно, содержимое переносили вручную).")
-        answer = input_with_timeout("Восстановить их из последнего коммита? (yes/no): ", 60)
+        answer = input_with_timeout("Восстановить их из последнего коммита? (yes/no): ", INPUT_TIMEOUT)
         if not (answer and answer.lower() in ("y", "yes")):
             print_info("Восстановление пропущено — поиск продолжится по текущему состоянию репозитория.")
             return
@@ -431,7 +554,7 @@ def _prompt_repo_root(script_dir):
     while True:
         raw = input_with_timeout(
             f"{action_label()} Укажите путь к локальному репозиторию argocd "
-            f"(Enter — склонировать в {REPO_PATH}): ", 300
+            f"(Enter — склонировать в {REPO_PATH}): ", INPUT_TIMEOUT
         )
         if raw is None:
             print_error("Таймаут ожидания. Запустите finder повторно.")
@@ -441,7 +564,7 @@ def _prompt_repo_root(script_dir):
             _save_repo_path(target)
             return target.resolve()
         answer = input_with_timeout(
-            f"[WARN] В {target} нет .git. Склонировать туда {REPO_URL}? (y/n): ", 300
+            f"[WARN] В {target} нет .git. Склонировать туда {REPO_URL}? (y/n): ", INPUT_TIMEOUT
         )
         if answer is None:
             print_error("Таймаут ожидания. Запустите finder повторно.")
@@ -497,8 +620,11 @@ def _report_changes(repo_root, news_dir, head_before, head_after):
         print_info(f"Полные изменения сохранены в {saved_path}")
 
 
-def pull_repo(repo_root, news_dir):
-    """git fetch + pull; возвращает (remote_url, head_before, head_after)."""
+def pull_repo(repo_root, fatal=True):
+    """git fetch + pull; возвращает (remote_url, head_before, head_after).
+
+    fatal=False — ошибка не завершает программу, а возвращает None
+    (используется фоновым обновлением из check_and_notify)."""
     stop_event = threading.Event()
     spinner = threading.Thread(target=animate_spinner, args=(stop_event,), daemon=True)
     spinner.start()
@@ -519,6 +645,8 @@ def pull_repo(repo_root, news_dir):
         head_after = _git(repo_root, "rev-parse", "HEAD").stdout.strip()
     except Exception as e:
         print_error(str(e))
+        if not fatal:
+            return None
         sys.exit(1)
     finally:
         _stop_spinner(stop_event, spinner)
@@ -533,6 +661,421 @@ def report_pull(repo_root, news_dir, remote_url, head_before, head_after):
         _report_changes(repo_root, news_dir, head_before, head_after)
     else:
         print_info("Новых изменений нет.")
+
+
+# --- Фоновая проверка изменений в репозитории ---
+class RepoChangeWatcher:
+    """Фоновый наблюдатель за репозиторием argocd.
+
+    Раз в REPO_CHECK_INTERVAL секунд выполняет тихий `git fetch origin` и
+    сравнивает HEAD с origin/<ветка>. Если появились новые коммиты —
+    выставляется флаг; уведомление показывает check_and_notify(), который
+    вызывается ТОЛЬКО в момент простоя (перед экраном критериев поиска),
+    чтобы не прерывать работу в меню. Пока накоплено больше
+    REPO_FAST_CHECK_THRESHOLD коммитов и пользователь ещё не ответил,
+    проверки идут чаще — каждые REPO_FAST_CHECK_INTERVAL секунд, чтобы
+    счётчик изменений в уведомлении обновлялся без ожидания полного
+    интервала. Ошибки сети/гита игнорируются — повторная попытка через
+    следующий интервал."""
+
+    def __init__(self, repo_root, interval=REPO_CHECK_INTERVAL):
+        self.repo_root = Path(repo_root)
+        self.interval = interval
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._changes_seen = False
+        self._declined_remote = None  # состояние, за которое уже спрашивали и получили «no»
+        self._remote_head = None      # текущее состояние origin/<ветка> после последнего fetch
+        self._change_count = 0        # сколько коммитов на origin/ветке сверх локального HEAD
+        self._thread = None
+
+    def start(self):
+        if self._thread is not None:
+            return
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def _run(self):
+        while not self._stop_event.wait(self._current_interval()):
+            try:
+                self._check_once()
+            except Exception:
+                pass  # фоновая проверка: ошибки молча глотаем, повторим позже
+
+    def _current_interval(self):
+        """Интервал до следующей проверки.
+
+        Если накопилось больше REPO_FAST_CHECK_THRESHOLD коммитов и мы ещё
+        не спрашивали об этом состоянии — проверяем чаще (каждые
+        REPO_FAST_CHECK_INTERVAL секунд), чтобы счётчик в уведомлении
+        обновлялся без ожидания полного интервала."""
+        with self._lock:
+            if (self._changes_seen and self._declined_remote is None
+                    and self._change_count > REPO_FAST_CHECK_THRESHOLD):
+                return REPO_FAST_CHECK_INTERVAL
+        return self.interval
+
+    def _check_once(self):
+        branch_res = _git(self.repo_root, "symbolic-ref", "--short", "HEAD")
+        if branch_res.returncode != 0:
+            return
+        branch = branch_res.stdout.strip()
+        if _git(self.repo_root, "fetch", "origin").returncode != 0:
+            return
+        local = _git(self.repo_root, "rev-parse", "HEAD")
+        remote = _git(self.repo_root, "rev-parse", f"origin/{branch}")
+        if local.returncode != 0 or remote.returncode != 0:
+            return
+        # Сколько коммитов на origin/ветке сверх локального HEAD (для уведомления).
+        count_res = _git(self.repo_root, "rev-list", "--count", f"HEAD..origin/{branch}")
+        try:
+            count = int(count_res.stdout.strip()) if count_res.returncode == 0 else 0
+        except ValueError:
+            count = 0
+        with self._lock:
+            if remote.stdout.strip() != local.stdout.strip():
+                # Новое состояние на удалёнке (или первое замеченное): спрашиваем.
+                # Если это то же самое, за которое уже ответили «no» — не спамим.
+                if remote.stdout.strip() != self._declined_remote:
+                    self._changes_seen = True
+                self._remote_head = remote.stdout.strip()
+                self._change_count = count
+
+    def pending_remote(self):
+        """Состояние origin/<ветка>, за которое ещё не спрашивали (или None)."""
+        with self._lock:
+            if self._changes_seen and self._declined_remote is None:
+                return self._remote_head
+            return None
+
+    def mark_declined(self, remote_head):
+        """Пользователь ответил «no» — не спрашиваем снова об этом же состоянии."""
+        with self._lock:
+            self._declined_remote = remote_head
+            if remote_head == self._remote_head:
+                self._changes_seen = False
+
+    def has_changes(self):
+        with self._lock:
+            return self._changes_seen
+
+    def change_count(self):
+        """Сколько новых коммитов на origin/ветке (0, если не удалось посчитать)."""
+        with self._lock:
+            return self._change_count
+
+    def clear_changes(self):
+        with self._lock:
+            self._changes_seen = False
+            self._declined_remote = None
+
+
+WATCHER = None  # создаётся в main() после стартового pull
+
+
+def check_and_notify(repo_root, news_dir, zones):
+    """Уведомление о новых изменениях в репозитории.
+
+    Вызывать только в простое — перед экраном критериев поиска. При
+    подтверждении выполняет pull, пересобирает зоны (in-place, чтобы
+    ссылки в main остались валидными) и печатает отчёт об изменениях."""
+    if WATCHER is None or not WATCHER.has_changes():
+        return False
+    # Фиксируем состояние удалёнки ДО вопроса: ответ «no» относится именно к нему.
+    remote_head = WATCHER.pending_remote()
+    count = WATCHER.change_count()
+    if count > 0:
+        # Скобки — белые, только цифра жёлтая (вне TTY без ANSI-кодов).
+        if sys.stdout.isatty():
+            counter = f"{WHITE}({YELLOW}{count}{RESET}){RESET}"
+        else:
+            counter = f"({count})"
+        print_warn(f"Найдены изменения в конфигурациях стендов {counter}.")
+    else:
+        print_warn("Найдены изменения в конфигурациях стендов.")
+    answer = input_with_timeout("Обновить локальный репозиторий? (yes/no): ", INPUT_TIMEOUT)
+    if not (answer and answer.lower() in ("y", "yes")):
+        # «no» — не дёргаем за то же состояние удалёнки снова, пока не появится новый коммит.
+        WATCHER.mark_declined(remote_head)
+        return False
+    pull_result = pull_repo(repo_root, fatal=False)
+    if pull_result is None:
+        WATCHER.mark_declined(remote_head)
+        return False
+    zones[:] = ZONES.init(repo_root)
+    ZONES.verify(repo_root, zones)
+    report_pull(repo_root, news_dir, *pull_result)
+    WATCHER.clear_changes()
+    return True
+
+# --- Подсчёт утилизации токенов (xlsx → ClickHouse → xlsx) ---
+def _import_openpyxl():
+    """openpyxl для чтения/записи xlsx; если его нет в Python — ставим на лету (pip)."""
+    try:
+        import openpyxl
+        return openpyxl
+    except ImportError as error:
+        # Диагностика: показываем, КАКИМ python запущен скрипт и что именно не нашлось.
+        print_warn(f"openpyxl не найден ({error}).")
+        print_info(f"Интерпретатор: {sys.executable}")
+        print_info(f"Версия: {sys.version.split()[0]}")
+        print_info(f"Пути поиска: {sys.path}")
+    print_warn("Пробую установить через pip в этот же интерпретатор...")
+    try:
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "openpyxl"], check=True)
+        import openpyxl
+        print_info(f"openpyxl установлен: {openpyxl.__version__}")
+        return openpyxl
+    except Exception as error:
+        print_error(f"Не удалось установить openpyxl автоматически: {error}")
+        print_info("Установите вручную: python -m pip install openpyxl")
+        return None
+TOKENS_DIR_NAME = "tokens"
+TOKENS_SOURCE_FILE = "Утилизация токены ПВБ.xlsx"
+def _build_subdomain_to_stand(repo_root, zones):
+    """Маппинг cowork_subdomain → stand_name по всем конфигам зон репозитория."""
+    mapping = {}
+    conflicts = 0
+    for zone in zones:
+        base = repo_root / zone["path"]
+        if not base.exists():
+            continue
+        prefixes = tuple(zone.get("stand_prefixes", ("cowork-",)))
+        for config_path in base.rglob(CONFIG):
+            if not config_path.parent.name.startswith(prefixes):
+                continue
+            data = read_config(config_path)
+            sub = data.get("cowork_subdomain")
+            stand = data.get("stand_name")
+            if not sub or not stand:
+                continue
+            key = sub.strip().lower()
+            if key in mapping and mapping[key] != stand:
+                conflicts += 1
+            else:
+                mapping[key] = stand
+    return mapping, conflicts
+def _token_utilization_sql(stands, days):
+    """Один запрос на все стенды: GROUP BY environment, чтобы результат раскидать по строкам."""
+    quoted = ", ".join(f"'{s}'" for s in stands)
+    return (
+        "SELECT environment, count() AS calls, "
+        "sum(usage_details['input']) AS input_tokens, sum(usage_details['output']) AS output_tokens, "
+        "sum(usage_details['total']) AS total_tokens "
+        "FROM default.observations "
+        f"WHERE environment IN ({quoted}) AND type = 'GENERATION' "
+        f"AND start_time >= now() - INTERVAL {days} DAY "
+        "GROUP BY environment FORMAT TabSeparated"
+    )
+def _parse_ch_env_output(raw_lines):
+    """Разбор вывода clickhouse-client с колонкой environment.
+    Возвращает dict: environment → (calls, inp, outp, tot)."""
+    def _num(s):
+        s = s.strip()
+        if s in ("", r"\N", "NULL"):
+            return 0
+        return int(float(s))
+    result = {}
+    for line in raw_lines:
+        parts = line.split("\t")
+        if len(parts) >= 5:
+            env_name, nums = parts[0], parts[1:5]
+        else:
+            toks = line.split()
+            if len(toks) < 5:
+                continue
+            env_name, nums = toks[0], toks[-4:]
+        try:
+            calls, inp, outp, tot = (_num(n) for n in nums)
+        except ValueError:
+            continue
+        if tot == 0:
+            tot = inp + outp
+        result[env_name.strip()] = (calls, inp, outp, tot)
+    return result
+TOKENS_RESULT_FILE = "результат clickhouse.txt"
+def _read_result_file(result_path):
+    """Строки результата из промежуточного файла; пропуская служебные строки
+    веб-терминала (root@..., #, $, эхо команды) и пустые."""
+    try:
+        raw = result_path.read_text(encoding="utf-8")
+    except OSError as error:
+        print_error(f"Не удалось прочитать файл: {error}")
+        return []
+    lines = []
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith(("root@", "#", "$")) or "clickhouse-client" in stripped:
+            continue
+        lines.append(line.rstrip())
+    return lines
+def _write_token_report_xlsx(src_path, out_path, mapping, totals_by_env, days):
+    """Копирует исходную таблицу и заполняет столбец K аналитикой по токенам.
+    Обрабатывает ТОЛЬКО видимые (развернутые) строки; свернутые (hidden) — не трогает."""
+    openpyxl = _import_openpyxl()
+    if openpyxl is None:
+        raise RuntimeError("openpyxl недоступен")
+    wb = openpyxl.load_workbook(str(src_path))
+    ws = wb[wb.sheetnames[0]]
+    filled = no_data = missing = skipped_hidden = 0
+    for row in range(2, ws.max_row + 1):
+        # Свернутая строка — пропускаем целиком, ячейку K не трогаем.
+        if ws.row_dimensions[row].hidden:
+            skipped_hidden += 1
+            continue
+        cell_a = ws.cell(row=row, column=1).value
+        if cell_a is None or str(cell_a).strip() == "":
+            continue
+        sub = str(cell_a).strip()
+        stand = mapping.get(sub.lower())
+        if stand is None:
+            text = "Не найден в конфигурациях репозитория"
+            missing += 1
+        elif stand not in totals_by_env:
+            text = f"Данных нет: за последние {days} дн. вызовов LLM не найдено"
+            no_data += 1
+        else:
+            calls, inp, outp, tot = totals_by_env[stand]
+            text = (f"Вызовов LLM: {_fmt_int(calls)}\n"
+                    f"Потрачено за период: {_fmt_int(tot)} токенов\n"
+                    f"  запрос к модели (input):   {_fmt_int(inp)}\n"
+                    f"  ответ модели (output):     {_fmt_int(outp)}")
+            filled += 1
+        cell = ws.cell(row=row, column=11, value=text)
+        cell.alignment = openpyxl.styles.Alignment(wrap_text=True, vertical="top")
+    wb.save(str(out_path))
+    return filled, no_data, missing, skipped_hidden
+def token_utilization_report(repo_root, script_dir, zones):
+    """Автоматизация подсчёта токенов: xlsx со списком subdomain → один запрос
+    clickhouse-client на все стенды → результат вставляется из терминала →
+    новая таблица в папке «Подсчет токенов» со столбцом K, заполненным аналитикой."""
+    print_divider()
+    print_action("Подсчёт утилизации токенов")
+    tokens_dir = script_dir / TOKENS_DIR_NAME
+    if not tokens_dir.exists():
+        tokens_dir.mkdir(parents=True)
+        print_info(f"Создана папка: {tokens_dir}")
+    else:
+        print_info(f"Папка готова: {tokens_dir}")
+    # Исходная таблица: ищем в папке подсчёта, затем рядом со скриптом.
+    src = tokens_dir / TOKENS_SOURCE_FILE
+    if not src.exists():
+        alt = script_dir / TOKENS_SOURCE_FILE
+        if alt.exists():
+            src = alt
+        else:
+            print_warn(f"Файл «{TOKENS_SOURCE_FILE}» не найден в {tokens_dir} и рядом со скриптом.")
+            answer = input_with_timeout(f"{action_label()} Укажите полный путь к файлу (Enter — отмена): ", INPUT_TIMEOUT)
+            if answer is None or not answer.strip():
+                print_warn("Операция отменена.")
+                return
+            src = Path(answer.strip())
+            if not src.exists():
+                print_error(f"Файл не найден: {src}")
+                return
+    openpyxl = _import_openpyxl()
+    if openpyxl is None:
+        return
+    try:
+        # Без read_only: нужен доступ к row_dimensions (hidden) — берём ТОЛЬКО
+        # развернутые (видимые) строки, свернутые в запрос не включаем.
+        wb = openpyxl.load_workbook(str(src))
+        ws = wb[wb.sheetnames[0]]
+        subs = []
+        for row in range(2, ws.max_row + 1):
+            if ws.row_dimensions[row].hidden:
+                continue
+            v = ws.cell(row=row, column=1).value
+            if v is not None and str(v).strip():
+                subs.append(str(v).strip())
+        wb.close()
+    except Exception as error:
+        print_error(f"Не удалось прочитать файл: {error}")
+        return
+    if not subs:
+        print_error("В столбце A (Название) нет ни одного subdomain.")
+        return
+    print_info(f"Видимых (развернутых) строк в таблице: {len(subs)}, уникальных subdomain: {len(set(s.lower() for s in subs))}.")
+    # Период — как в пункте 8.
+    print("  Период:")
+    print("   1. Последние 7 дней")
+    print("   2. Последние 30 дней")
+    print("   3. Другой период (дней)")
+    choice = input_with_timeout("Выберите период (1-3): ", INPUT_TIMEOUT)
+    if choice is None:
+        print_warn("Таймаут ожидания. Операция отменена.")
+        return
+    choice = choice.strip()
+    if choice == "1":
+        days = 7
+    elif choice == "2":
+        days = 30
+    elif choice.isdigit() and 1 <= int(choice) <= 365:
+        days = int(choice)
+    else:
+        print_warn("Неверный период, операция отменена.")
+        return
+    # Маппинг subdomain → stand_name (environment в ClickHouse) по конфигам репозитория.
+    print_info("Собираю маппинг subdomain → stand_name из конфигураций репозитория...")
+    mapping, conflicts = _build_subdomain_to_stand(repo_root, zones)
+    if conflicts:
+        print_warn(f"Обратите внимание: {conflicts} конфликт(а) — один subdomain встречается в разных стендах; взят первый.")
+    known = [s for s in dict.fromkeys(subs) if s.lower() in mapping]
+    unknown_count = len(dict.fromkeys(subs)) - len(known)
+    stands = list(dict.fromkeys(mapping[s.lower()] for s in known))
+    print_info(f"Соответствие найдено для {len(known)} subdomain ({len(stands)} стендов).")
+    if unknown_count:
+        print_warn(f"Не найдено в конфигурациях: {unknown_count} subdomain — для них в столбце K будет пометка.")
+    if not stands:
+        print_error("Ни один subdomain из таблицы не найден в конфигурациях репозитория.")
+        return
+    sql = _token_utilization_sql(stands, days)
+    ch_app_url = ("https://argocd-tb01.cowork.ru/applications/langfuse/langfuse"
+                  "?view=tree&node=%2FPod%2Flangfuse%2Fchi-langfuse-default-0-0-0&tab=exec&resource=")
+    open_url(ch_app_url)
+    print_info("Открыт под chi-langfuse-default-0-0-0 (приложение langfuse, вкладка exec).")
+    result_path = tokens_dir / TOKENS_RESULT_FILE
+    result_path.write_text("", encoding="utf-8")
+    print("Выполните команду в открытом веб-терминале пода:")
+    print()
+    print(colorize(f"clickhouse-client --query \"{sql}\"", CYAN))
+    print()
+    print_info(f"Скопируйте весь вывод команды в файл: {result_path}")
+    answer = input_with_timeout(f"{action_label()} Заполнили файл? (yes/no): ", INPUT_TIMEOUT)
+    if answer is None or answer.strip().lower() not in ("y", "yes"):
+        print_warn("Операция отменена.")
+        return
+    lines = _read_result_file(result_path)
+    if not lines:
+        print_warn(f"Файл {result_path} пуст или содержит только служебные строки.")
+        answer2 = input_with_timeout(f"{action_label()} Продолжить с пометкой «Данных нет»? (yes/no): ", INPUT_TIMEOUT)
+        if answer2 is None or answer2.strip().lower() not in ("y", "yes"):
+            print_warn("Операция отменена.")
+            return
+    totals_by_env = _parse_ch_env_output(lines)
+    if not totals_by_env:
+        print_warn("Не удалось разобрать результат: ожидается табличка «environment вызовы input output total» (табы или пробелы).")
+        print_info("Если данных действительно нет — так и оставьте: в столбце K будет пометка «Данных нет».")
+    else:
+        matched = sum(1 for s in stands if s in totals_by_env)
+        print_info(f"Разобрано результатов по {len(totals_by_env)} стендам, из запрошенных {len(stands)} найдено {matched}.")
+    stamp = datetime.now().strftime("%Y%m%d_%H%M")
+    out_path = tokens_dir / f"Подсчет утилизации_{stamp}.xlsx"
+    try:
+        filled, no_data, missing, skipped_hidden = _write_token_report_xlsx(src, out_path, mapping, totals_by_env, days)
+    except Exception as error:
+        print_error(f"Не удалось сохранить Excel: {error}")
+        return
+    print_divider()
+    print_info(f"Готово: {filled} строк с аналитикой, {no_data} без данных за период, {missing} не найдено в репозитории.")
+    if skipped_hidden:
+        print_info(f"Свернутые строки не тронуты: {skipped_hidden}.")
+    print_info(f"Файл сохранён: {out_path}")
 
 # --- Поиск стендов ---
 _CONFIG_KEYS = ("stand_name", "cowork_subdomain", "admin_email", "expiry_date", "cowork_revision", "public_hostname")
@@ -669,7 +1212,8 @@ def open_stand_config(selected):
 # Полные шаблоны (тело — рабочие версии change_workspace_owner / add_all_users_to_workspace), значения подставляются
 # через .replace(), чтобы не экранировать фигурные скобки во внутренних f-строках.
 
-_CHANGE_OWNER_TEMPLATE = '''import asyncio
+_SCRIPT_COMMON_HELPERS = '''# ===== Общие хелперы встроенных скриптов (импорты + DSN + запросы) =====
+import asyncio
 import os
 import sys
 
@@ -686,20 +1230,7 @@ except ImportError:
         subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
     import asyncpg
 
-OWNER_ROLE_ID = "workspace.owner"
-MEMBER_ROLE_ID = "workspace.member"
 WORKSPACE_NAMESPACE = "workspace"
-
-WORKSPACE_IDS = [
-__IDS__
-]
-NEW_OWNER_EMAIL = __EMAIL__
-# True — только показать, что будет сделано, ничего не менять
-DRY_RUN = __DRY__
-
-DEFAULT_YGGDRASIL_URL = __YGG__
-DEFAULT_HEIMDALL_URL = __HM__
-
 
 def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
     for name in variable_names:
@@ -708,7 +1239,6 @@ def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
             return value
     return default
 
-
 async def resolve_user_id(connection: asyncpg.Connection, email: str) -> str:
     user_id = await connection.fetchval(
         "SELECT id::text FROM users WHERE lower(email) = lower($1)", email
@@ -716,13 +1246,6 @@ async def resolve_user_id(connection: asyncpg.Connection, email: str) -> str:
     if user_id is None:
         raise ValueError(f"Пользователь {email} не найден в users (yggdrasil)")
     return user_id
-
-
-async def user_exists(connection: asyncpg.Connection, user_id: str) -> bool:
-    return await connection.fetchval(
-        "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", user_id
-    )
-
 
 async def get_workspace_state(connection: asyncpg.Connection, workspace_id: str) -> dict:
     row = await connection.fetchrow(
@@ -740,21 +1263,15 @@ async def get_workspace_state(connection: asyncpg.Connection, workspace_id: str)
         raise ValueError(f"Workspace is archived or trashed: {workspace_id}")
     return dict(row)
 
-
-async def get_members(connection: asyncpg.Connection, workspace_id: str) -> list[dict]:
-    return [
-        dict(r)
-        for r in await connection.fetch(
-            """
-            SELECT user_id::text AS user_id, role_id
-            FROM workspace_members
-            WHERE workspace_id = $1
-            ORDER BY user_id
-            """,
-            workspace_id,
-        )
-    ]
-
+async def get_member_role(connection: asyncpg.Connection, workspace_id: str, user_id: str) -> str | None:
+    return await connection.fetchval(
+        """
+        SELECT role_id
+        FROM workspace_members
+        WHERE workspace_id = $1 AND user_id = $2
+        """,
+        workspace_id, user_id,
+    )
 
 async def get_grant(
     heimdall_connection: asyncpg.Connection, user_id: str, workspace_id: str
@@ -769,7 +1286,40 @@ async def get_grant(
         """,
         user_id, WORKSPACE_NAMESPACE, workspace_id,
     )
+'''
+_CHANGE_OWNER_TEMPLATE = '''
 
+OWNER_ROLE_ID = "workspace.owner"
+MEMBER_ROLE_ID = "workspace.member"
+
+WORKSPACE_IDS = [
+__IDS__
+]
+NEW_OWNER_EMAIL = __EMAIL__
+# True — только показать, что будет сделано, ничего не менять
+DRY_RUN = __DRY__
+
+DEFAULT_YGGDRASIL_URL = __YGG__
+DEFAULT_HEIMDALL_URL = __HM__
+
+async def user_exists(connection: asyncpg.Connection, user_id: str) -> bool:
+    return await connection.fetchval(
+        "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", user_id
+    )
+
+async def get_members(connection: asyncpg.Connection, workspace_id: str) -> list[dict]:
+    return [
+        dict(r)
+        for r in await connection.fetch(
+            """
+            SELECT user_id::text AS user_id, role_id
+            FROM workspace_members
+            WHERE workspace_id = $1
+            ORDER BY user_id
+            """,
+            workspace_id,
+        )
+    ]
 
 async def upsert_grant(
     heimdall_connection: asyncpg.Connection,
@@ -786,7 +1336,6 @@ async def upsert_grant(
         """,
         user_id, WORKSPACE_NAMESPACE, workspace_id, role_id,
     )
-
 
 async def transfer(
     yggdrasil_connection: asyncpg.Connection,
@@ -847,7 +1396,6 @@ async def transfer(
 
     # 4) Heimdall: новый владелец — owner
     await upsert_grant(heimdall_connection, new_owner_id, workspace_id, OWNER_ROLE_ID)
-
 
 async def main() -> None:
     yggdrasil_url = get_database_url(("YGGDRASIL_DATABASE_URL",), DEFAULT_YGGDRASIL_URL)
@@ -921,40 +1469,22 @@ async def main() -> None:
         await yggdrasil_connection.close()
         await heimdall_connection.close()
 
-
 if __name__ == "__main__":
     asyncio.run(main())
 '''
 
-_MASS_ADD_TEMPLATE = '''import asyncio
-import os
-
-try:
-    import asyncpg
-except ImportError:
-    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
-    import subprocess
-    import sys as _sys
-    try:
-        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
-    except subprocess.CalledProcessError:
-        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
-        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
-    import asyncpg
+_MASS_ADD_TEMPLATE = '''
 
 MEMBER_ROLE_ID = "workspace.member"
-WORKSPACE_NAMESPACE = "workspace"
 WORKSPACE_IDS = [
 __IDS__
 ]
-
 
 def get_required_database_url(variable_name: str) -> str:
     value = os.environ.get(variable_name)
     if not value:
         raise RuntimeError(f"Required environment variable is not set: {variable_name}")
     return value
-
 
 async def get_all_user_ids(connection: asyncpg.Connection) -> set[str]:
     rows = await connection.fetch(
@@ -965,7 +1495,6 @@ async def get_all_user_ids(connection: asyncpg.Connection) -> set[str]:
         """
     )
     return {row["id"] for row in rows}
-
 
 async def get_existing_workspace_member_ids(
     connection: asyncpg.Connection,
@@ -981,7 +1510,6 @@ async def get_existing_workspace_member_ids(
         workspace_id,
     )
     return {row["user_id"] for row in rows}
-
 
 async def ensure_workspace_is_active(
     connection: asyncpg.Connection,
@@ -1001,7 +1529,6 @@ async def ensure_workspace_is_active(
     )
     if not exists:
         raise ValueError(f"Workspace is missing, archived, or trashed: {workspace_id}")
-
 
 async def insert_missing_workspace_members(
     connection: asyncpg.Connection,
@@ -1037,7 +1564,6 @@ async def insert_missing_workspace_members(
         )
     return len(rows)
 
-
 async def insert_missing_access_grants(
     heimdall_connection: asyncpg.Connection,
     workspace_id: str,
@@ -1060,7 +1586,6 @@ async def insert_missing_access_grants(
         MEMBER_ROLE_ID,
     )
     return len(rows)
-
 
 async def main() -> None:
     yggdrasil_url = os.environ.get("YGGDRASIL_DATABASE_URL",
@@ -1123,30 +1648,13 @@ async def main() -> None:
         await yggdrasil_connection.close()
         await heimdall_connection.close()
 
-
 if __name__ == "__main__":
     asyncio.run(main())
 '''
 
-_ADD_USER_TEMPLATE = '''import asyncio
-import os
-import sys
-from datetime import datetime, timezone
-try:
-    import asyncpg
-except ImportError:
-    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
-    import subprocess
-    import sys as _sys
-    try:
-        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
-    except subprocess.CalledProcessError:
-        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
-        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
-    import asyncpg
+_ADD_USER_TEMPLATE = '''from datetime import datetime, timezone
 
 MEMBER_ROLE_ID = "workspace.member"
-WORKSPACE_NAMESPACE = "workspace"
 
 WORKSPACE_IDS = [
 __IDS__
@@ -1159,67 +1667,6 @@ DRY_RUN = __DRY__
 
 DEFAULT_YGGDRASIL_URL = __YGG__
 DEFAULT_HEIMDALL_URL = __HM__
-
-
-def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
-    for name in variable_names:
-        value = os.environ.get(name)
-        if value:
-            return value
-    return default
-
-
-async def resolve_user_id(connection: asyncpg.Connection, email: str) -> str:
-    user_id = await connection.fetchval(
-        "SELECT id::text FROM users WHERE lower(email) = lower($1)", email
-    )
-    if user_id is None:
-        raise ValueError(f"Пользователь {email} не найден в users (yggdrasil)")
-    return user_id
-
-
-async def get_workspace_state(connection: asyncpg.Connection, workspace_id: str) -> dict:
-    row = await connection.fetchrow(
-        """
-        SELECT id::text AS id, name, type, status, trash_state,
-               owner_id::text AS owner_id
-        FROM workspaces
-        WHERE id = $1
-        """,
-        workspace_id,
-    )
-    if row is None:
-        raise ValueError(f"Workspace not found: {workspace_id}")
-    if row["status"] == "archived" or row["trash_state"] is not None:
-        raise ValueError(f"Workspace is archived or trashed: {workspace_id}")
-    return dict(row)
-
-
-async def get_member_role(connection: asyncpg.Connection, workspace_id: str, user_id: str) -> str | None:
-    return await connection.fetchval(
-        """
-        SELECT role_id
-        FROM workspace_members
-        WHERE workspace_id = $1 AND user_id = $2
-        """,
-        workspace_id, user_id,
-    )
-
-
-async def get_grant(
-    heimdall_connection: asyncpg.Connection, user_id: str, workspace_id: str
-) -> str | None:
-    return await heimdall_connection.fetchval(
-        """
-        SELECT role_id
-        FROM access_grants
-        WHERE user_id = $1
-          AND namespace = $2
-          AND resource_id = $3
-        """,
-        user_id, WORKSPACE_NAMESPACE, workspace_id,
-    )
-
 
 async def get_invite_status(heimdall_connection: asyncpg.Connection, email: str) -> str:
     row = await heimdall_connection.fetchrow(
@@ -1243,7 +1690,6 @@ async def get_invite_status(heimdall_connection: asyncpg.Connection, email: str)
     if expires_at <= now:
         return f"ссылка истекла {expires_at:%Y-%m-%d %H:%M} UTC, нужно перевыслать приглашение"
     return f"токен в статусе {row['status']}, пользователя в провайдере нет"
-
 
 async def add_member(
     yggdrasil_connection: asyncpg.Connection,
@@ -1280,7 +1726,6 @@ async def add_member(
         """,
         user_id, WORKSPACE_NAMESPACE, workspace_id, MEMBER_ROLE_ID,
     )
-
 
 async def main() -> None:
     yggdrasil_url = get_database_url(("YGGDRASIL_DATABASE_URL",), DEFAULT_YGGDRASIL_URL)
@@ -1370,28 +1815,11 @@ async def main() -> None:
         await yggdrasil_connection.close()
         await heimdall_connection.close()
 
-
 if __name__ == "__main__":
     asyncio.run(main())
 '''
 
-_REMOVE_USER_TEMPLATE = '''import asyncio
-import os
-import sys
-try:
-    import asyncpg
-except ImportError:
-    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
-    import subprocess
-    import sys as _sys
-    try:
-        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
-    except subprocess.CalledProcessError:
-        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
-        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
-    import asyncpg
-WORKSPACE_NAMESPACE = "workspace"
-WORKSPACE_IDS = [
+_REMOVE_USER_TEMPLATE = '''WORKSPACE_IDS = [
 __IDS__
 ]
 USER_EMAILS = [
@@ -1406,12 +1834,6 @@ __EXTRA_IDS__
 DRY_RUN = __DRY__
 DEFAULT_YGGDRASIL_URL = __YGG__
 DEFAULT_HEIMDALL_URL = __HM__
-def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
-    for name in variable_names:
-        value = os.environ.get(name)
-        if value:
-            return value
-    return default
 async def fetch_user_ids_by_email(connection: asyncpg.Connection, email: str) -> list[str]:
     """Все id из users по email (в одной таблице может быть несколько строк)."""
     try:
@@ -1467,43 +1889,6 @@ async def resolve_user_ids(
     except Exception:
         pass
     return ids
-async def get_workspace_state(connection: asyncpg.Connection, workspace_id: str) -> dict:
-    row = await connection.fetchrow(
-        """
-        SELECT id::text AS id, name, type, status, trash_state,
-               owner_id::text AS owner_id
-        FROM workspaces
-        WHERE id = $1
-        """,
-        workspace_id,
-    )
-    if row is None:
-        raise ValueError(f"Workspace not found: {workspace_id}")
-    if row["status"] == "archived" or row["trash_state"] is not None:
-        raise ValueError(f"Workspace is archived or trashed: {workspace_id}")
-    return dict(row)
-async def get_member_role(connection: asyncpg.Connection, workspace_id: str, user_id: str) -> str | None:
-    return await connection.fetchval(
-        """
-        SELECT role_id
-        FROM workspace_members
-        WHERE workspace_id = $1 AND user_id = $2
-        """,
-        workspace_id, user_id,
-    )
-async def get_grant(
-    heimdall_connection: asyncpg.Connection, user_id: str, workspace_id: str
-) -> str | None:
-    return await heimdall_connection.fetchval(
-        """
-        SELECT role_id
-        FROM access_grants
-        WHERE user_id = $1
-          AND namespace = $2
-          AND resource_id = $3
-        """,
-        user_id, WORKSPACE_NAMESPACE, workspace_id,
-    )
 async def remove_member(
     yggdrasil_connection: asyncpg.Connection,
     heimdall_connection: asyncpg.Connection,
@@ -1667,31 +2052,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 '''
 
-_LIST_WORKSPACES_TEMPLATE = '''import asyncio
-import os
-import sys
-
-try:
-    import asyncpg
-except ImportError:
-    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
-    import subprocess
-    import sys as _sys
-    try:
-        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
-    except subprocess.CalledProcessError:
-        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
-        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
-    import asyncpg
-
-
-def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
-    for name in variable_names:
-        value = os.environ.get(name)
-        if value:
-            return value
-    return default
-
+_LIST_WORKSPACES_TEMPLATE = '''
 
 async def main() -> None:
     yggdrasil_url = get_database_url(("YGGDRASIL_DATABASE_URL",), __YGG__)
@@ -1723,74 +2084,74 @@ async def main() -> None:
     finally:
         await yggdrasil_connection.close()
 
-
 if __name__ == "__main__":
     asyncio.run(main())
 '''
 
 
 def _ids_block(workspace_ids):
-    return ",\n".join(f'    "{w}"' for w in workspace_ids)
+    return _json_list_block(workspace_ids)
+
+
+def _emails_block(user_emails):
+    return _json_list_block(user_emails)
+
+
+def _json_list_block(values):
+    """Блок JSON-значений для вставки в список Python: по одному на строку, отступ 4."""
+    return ",\n".join(f"    {json.dumps(v)}" for v in values)
+
+
+def _render_script(template, **replacements):
+    """Собирает скрипт: общий блок хелперов + шаблон + подстановка плейсхолдеров __KEY__."""
+    result = _SCRIPT_COMMON_HELPERS + template
+    for key, value in replacements.items():
+        result = result.replace(f"__{key}__", value)
+    return result
 
 
 def generate_change_owner_script(workspace_ids, new_owner_email, dry_run, ygg_url, hm_url):
-    return (_CHANGE_OWNER_TEMPLATE
-            .replace("__IDS__", _ids_block(workspace_ids))
-            .replace("__EMAIL__", json.dumps(new_owner_email))
-            .replace("__DRY__", "True" if dry_run else "False")
-            .replace("__YGG__", json.dumps(ygg_url))
-            .replace("__HM__", json.dumps(hm_url)))
+    return _render_script(_CHANGE_OWNER_TEMPLATE,
+                          IDS=_ids_block(workspace_ids),
+                          EMAIL=json.dumps(new_owner_email),
+                          DRY="True" if dry_run else "False",
+                          YGG=json.dumps(ygg_url),
+                          HM=json.dumps(hm_url))
 
 
 def generate_mass_add_script(workspace_ids, ygg_url, hm_url):
-    return (_MASS_ADD_TEMPLATE
-            .replace("__IDS__", _ids_block(workspace_ids))
-            .replace("__YGG__", json.dumps(ygg_url))
-            .replace("__HM__", json.dumps(hm_url)))
+    return _render_script(_MASS_ADD_TEMPLATE,
+                          IDS=_ids_block(workspace_ids),
+                          YGG=json.dumps(ygg_url),
+                          HM=json.dumps(hm_url))
 
 
 def generate_add_user_script(workspace_ids, user_emails, dry_run, ygg_url, hm_url):
-    emails_block = ",\n".join(f'    {json.dumps(e)}' for e in user_emails)
-    return (_ADD_USER_TEMPLATE
-            .replace("__IDS__", _ids_block(workspace_ids))
-            .replace("__EMAILS__", emails_block)
-            .replace("__DRY__", "True" if dry_run else "False")
-            .replace("__YGG__", json.dumps(ygg_url))
-            .replace("__HM__", json.dumps(hm_url)))
+    return _render_script(_ADD_USER_TEMPLATE,
+                          IDS=_ids_block(workspace_ids),
+                          EMAILS=_emails_block(user_emails),
+                          DRY="True" if dry_run else "False",
+                          YGG=json.dumps(ygg_url),
+                          HM=json.dumps(hm_url))
 
 
 def generate_remove_user_script(workspace_ids, user_emails, dry_run, ygg_url, hm_url, extra_user_ids=None):
-    emails_block = ",\n".join(f'    {json.dumps(e)}' for e in user_emails)
     extra_ids = extra_user_ids or []
-    extra_block = ",\n".join(f'    {json.dumps(uid)}' for uid in extra_ids) if extra_ids else "    # (пусто — не нужно)"
-    return (_REMOVE_USER_TEMPLATE
-            .replace("__EXTRA_IDS__", extra_block)
-            .replace("__IDS__", _ids_block(workspace_ids))
-            .replace("__EMAILS__", emails_block)
-            .replace("__DRY__", "True" if dry_run else "False")
-            .replace("__YGG__", json.dumps(ygg_url))
-            .replace("__HM__", json.dumps(hm_url)))
+    extra_block = _json_list_block(extra_ids) if extra_ids else "    # (пусто — не нужно)"
+    return _render_script(_REMOVE_USER_TEMPLATE,
+                          EXTRA_IDS=extra_block,
+                          IDS=_ids_block(workspace_ids),
+                          EMAILS=_emails_block(user_emails),
+                          DRY="True" if dry_run else "False",
+                          YGG=json.dumps(ygg_url),
+                          HM=json.dumps(hm_url))
 
 
 def generate_list_workspaces_script(ygg_url):
-    return _LIST_WORKSPACES_TEMPLATE.replace("__YGG__", json.dumps(ygg_url))
+    return _render_script(_LIST_WORKSPACES_TEMPLATE, YGG=json.dumps(ygg_url))
 
 # --- Починить роли на стенде (heimdall_auth) ---
-_FIX_EMPTY_ROLES_TEMPLATE = '''import asyncio
-import os
-try:
-    import asyncpg
-except ImportError:
-    # Под debug-ubuntu обновили — asyncpg из него вынесли; ставим на лету (pip в поде есть).
-    import subprocess
-    import sys as _sys
-    try:
-        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "asyncpg"])
-    except subprocess.CalledProcessError:
-        # Ubuntu 24.04 / PEP 668: без флага установка запрещена
-        subprocess.check_call([_sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "asyncpg"])
-    import asyncpg
-# Роль «Участник» (global role id в heimdall_auth)
+_FIX_EMPTY_ROLES_TEMPLATE = '''# Роль «Участник» (global role id в heimdall_auth)
 MEMBER_ROLE_ID = "6441ce25-27e5-436a-ae2d-374d080dcab1"
 # Исключения: тестовый аккаунт и внешние пользователи не трогаем
 EXCLUDE_EMAILS = ["cp-test@gigab2b.ru"]
@@ -1798,12 +2159,6 @@ EXTERNAL_PREFIX = "ext-"
 # True — только показать, кто без ролей, ничего не менять
 DRY_RUN = __DRY__
 DEFAULT_HEIMDALL_URL = __HM__
-def get_database_url(variable_names: tuple[str, ...], default: str) -> str:
-    for name in variable_names:
-        value = os.environ.get(name)
-        if value:
-            return value
-    return default
 async def main() -> None:
     heimdall_url = get_database_url(("HEIMDALL_DATABASE_URL", "AUTH_DATABASE_URL"), DEFAULT_HEIMDALL_URL)
     connection = await asyncpg.connect(heimdall_url)
@@ -1866,9 +2221,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 '''
 def generate_fix_empty_roles_script(dry_run, hm_url):
-    return (_FIX_EMPTY_ROLES_TEMPLATE
-            .replace("__DRY__", "True" if dry_run else "False")
-            .replace("__HM__", json.dumps(hm_url)))
+    return _render_script(_FIX_EMPTY_ROLES_TEMPLATE,
+                          DRY="True" if dry_run else "False",
+                          HM=json.dumps(hm_url))
 
 
 def build_db_url(user, host, folder, db):
@@ -1962,30 +2317,71 @@ def _resolve_db_url(raw, user, host, db, folder, var_name):
     return url
 
 
-def _load_dsn_cache():
-    try:
-        with open(DSN_CACHE_PATH, encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except (OSError, json.JSONDecodeError):
-        return {}
+class DsnCache:
+    """Кэш DSN по стендам (файл ~/.gigafinder/dsn-cache.json).
+
+    Общий фоллбек всех операций: «кэш → ArgoCD → ввод» и сохранение
+    распознанного DSN обратно в кэш.
+    """
+
+    def __init__(self, path):
+        self.path = Path(path)
+        self.data = {}
+        try:
+            with open(self.path, encoding="utf-8") as f:
+                loaded = json.load(f)
+            if isinstance(loaded, dict):
+                self.data = loaded
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    def save(self):
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.path, "w", encoding="utf-8") as f:
+                json.dump(self.data, f, ensure_ascii=False, indent=2)
+        except OSError as error:
+            print_warn(f"Не удалось сохранить кэш DSN: {error}")
+
+    def entry(self, folder):
+        return self.data.get(folder) or {}
+
+    def offer_cached(self, folder, key, label):
+        """Предложить значение из кэша; True — использовать, False — ввести заново."""
+        value = self.entry(folder).get(key)
+        if not value:
+            return False
+        saved_at = self.entry(folder).get("saved_at", "дата неизвестна")
+        print_info(f"Найден кэш DSN {label} для стенда {folder} (сохранён {saved_at}).")
+        choice = input(f"{action_label()} Enter — использовать из кэша, d — ввести заново: ").strip().lower()
+        if choice != "d":
+            print_info(f"Использую DSN {label} из кэша для стенда {folder}.")
+            return True
+        return False
+
+    def store(self, folder, note, **values):
+        """Сохранить значения в кэш (только распознанные DSN) и показать подсказку."""
+        if any("<ПАРОЛЬ>" in v for v in values.values()):
+            return
+        entry = dict(self.entry(folder))
+        entry.update(values)
+        entry["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.data[folder] = entry
+        self.save()
+        print_info(f"{note} в кэш ({self.path}) — в следующий раз вводить не придётся.")
 
 
-def _save_dsn_cache(cache):
-    try:
-        DSN_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(DSN_CACHE_PATH, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False, indent=2)
-    except OSError as error:
-        print_warn(f"Не удалось сохранить кэш DSN: {error}")
+def _stand_name(selected):
+    """Имя стенда для отображения: stand_name или folder как фоллбек."""
+    return selected.get("stand_name") or selected.get("folder", "")
 
 
 def prompt_db_urls(selected, zone, need_heimdall=True):
     folder = selected.get("folder", "")
-    stand_name = selected.get("stand_name") or folder
+    stand_name = _stand_name(selected)
 
-    cache = _load_dsn_cache()
-    cached = cache.get(folder) or {}
+    cache = DSN_CACHE
+    cached = cache.entry(folder)
     cached_ygg = cached.get("yggdrasil")
     cached_hm = cached.get("heimdall")
     if cached_ygg and (not need_heimdall or cached_hm):
@@ -2015,12 +2411,10 @@ def prompt_db_urls(selected, zone, need_heimdall=True):
         hm = _resolve_db_url(hm_raw, "heimdall_auth", "heimdall-auth-postgres-rw", "heimdall_auth", folder, "HEIMDALL_DATABASE_URL")
 
     if "<ПАРОЛЬ>" not in ygg and "<ПАРОЛЬ>" not in (hm or ""):  # в кэш — только распознанные DSN
-        entry = {"yggdrasil": ygg, "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M")}
+        values = {"yggdrasil": ygg}
         if need_heimdall:
-            entry["heimdall"] = hm
-        cache[folder] = entry
-        _save_dsn_cache(cache)
-        print_info(f"DSN сохранены в кэш ({DSN_CACHE_PATH}) — в следующий раз вводить не придётся.")
+            values["heimdall"] = hm
+        cache.store(folder, "DSN сохранены", **values)
 
     return ygg, hm
 
@@ -2028,30 +2422,21 @@ def prompt_db_urls(selected, zone, need_heimdall=True):
 def prompt_heimdall_url(selected, zone):
     """Запрашивает DSN heimdall_auth (кэш → ArgoCD → ввод); возвращает URL."""
     folder = selected.get("folder", "")
-    stand_name = selected.get("stand_name") or folder
-    cache = _load_dsn_cache()
-    cached = cache.get(folder) or {}
-    cached_hm = cached.get("heimdall")
-    if cached_hm:
-        saved_at = cached.get("saved_at", "дата неизвестна")
-        print_info(f"Найден кэш DSN heimdall для стенда {folder} (сохранён {saved_at}).")
-        choice = input(f"{action_label()} Enter — использовать из кэша, d — ввести заново: ").strip().lower()
-        if choice != "d":
-            print_info(f"Использую DSN heimdall из кэша для стенда {folder}.")
-            return cached_hm
+    stand_name = _stand_name(selected)
+    cache = DSN_CACHE
+    if cache.offer_cached(folder, "heimdall", "heimdall"):
+        return cache.entry(folder)["heimdall"]
     open_pod_exec._opened = False
     print_info("Открываю приложение heimdall в ArgoCD — скопируйте AUTH_DATABASE_URL.")
     open_pod_exec(zone["code"], stand_name, "heimdall", zone.get("app_template"), zone.get("argocd_base"))
     hm_raw = input(f"{action_label()} Вставьте строку целиком (в поде: {colorize('env | grep AUTH_DATABASE_URL', CYAN)}): ").strip()
     hm = _resolve_db_url(hm_raw, "heimdall_auth", "heimdall-auth-postgres-rw", "heimdall_auth", folder, "HEIMDALL_DATABASE_URL")
     if "<ПАРОЛЬ>" not in hm:
-        entry = dict(cached)
-        entry["heimdall"] = hm
-        entry["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-        cache[folder] = entry
-        _save_dsn_cache(cache)
-        print_info(f"DSN heimdall сохранён в кэш ({DSN_CACHE_PATH}) — в следующий раз вводить не придётся.")
+        cache.store(folder, "DSN heimdall сохранён", heimdall=hm)
     return hm
+
+
+DSN_CACHE = DsnCache(DSN_CACHE_PATH)
 
 
 def resolve_zone(selected):
@@ -2215,6 +2600,368 @@ def fix_empty_roles(selected, zone):
         "Скрипт с DRY_RUN=True сохранён в exec/.",
     )
 
+# --- Создание аккаунтов на стенде (auth_sdk в поде heimdall-auth) ---
+_CREATE_ACCOUNTS_TEMPLATE = '''import asyncio, secrets, string, sys, httpx
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+# Логин = часть до @; email собирается как логин@домен стенда
+USERS = [
+__USERS__
+]
+DOMAIN = __DOMAIN__
+
+def make_password(length=24):
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
+    while True:
+        password = "".join(secrets.choice(alphabet) for _ in range(length))
+        if any(c.islower() for c in password) and any(c.isupper() for c in password) and any(c.isdigit() for c in password) and any(c in "!@#$%^&*()-_=+" for c in password):
+            return password
+
+async def main():
+    if not DOMAIN or "@" in DOMAIN:
+        print(f"{RED}ERROR:{RESET} заполните корректный домен")
+        sys.exit(2)
+    if not USERS:
+        print(f"{RED}ERROR:{RESET} список пользователей пуст")
+        sys.exit(2)
+    settings = get_settings()
+    async with httpx.AsyncClient() as http:
+        auth_client = AuthClient(
+            config=KeycloakProviderConfig(
+                issuer_url=settings.provider_issuer_url,
+                realm=settings.provider_realm,
+                client_id=settings.provider_client_id,
+                client_secret=settings.provider_client_secret,
+            ),
+            http_client=http,
+        )
+        created_count = 0
+        reused_count = 0
+        for login in USERS:
+            email = f"{login}@{DOMAIN}"
+            fio = login
+            parts = fio.split()
+            last_name = parts[0]
+            first_name = " ".join(parts[1:]) if len(parts) > 1 else "Technical"
+            user = await auth_client.find_user_by_email(email=email)
+            if user is None:
+                user = await auth_client.create_provider_user(email=email, first_name=first_name, last_name=last_name)
+                created = True
+            else:
+                created = False
+            password = make_password()
+            await auth_client.reset_user_password(user_id=user.id, new_password=password)
+            action = "создан новый пользователь" if created else "использован существующий пользователь"
+            print(f"{GREEN}[OK]{RESET} {action}")
+            print("")
+            print(f"  email:    {email}")
+            print(f"  password: {password}")
+            print(f"  user_id:  {user.id}")
+            if created:
+                created_count += 1
+            else:
+                reused_count += 1
+        print("")
+        print(f"ИТОГО: создано новых: {created_count}, использовано существующих: {reused_count}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+'''
+
+
+def generate_create_accounts_script(logins, domain):
+    """Команда heredoc для пода heimdall-auth: создание/сброс паролей нескольких аккаунтов."""
+    body = (_CREATE_ACCOUNTS_TEMPLATE
+            .replace("__USERS__", _json_list_block(logins))
+            .replace("__DOMAIN__", json.dumps(domain)))
+    return f"/app/services/auth/.venv/bin/python <<'PY'\n{body}PY\n"
+
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def parse_accounts_output(text):
+    """Разбор вывода create_accounts: пары (email, password) в порядке появления."""
+    text = _ANSI_RE.sub("", text or "")
+    accounts = []
+    current_email = None
+    for line in text.splitlines():
+        m = re.match(r"^\s*email:\s*(\S+@\S+)\s*$", line)
+        if m:
+            current_email = m.group(1)
+            continue
+        m = re.match(r"^\s*password:\s*(\S+)\s*$", line)
+        if m and current_email:
+            accounts.append((current_email, m.group(1)))
+            current_email = None
+    return accounts
+
+
+def _write_accounts_xlsx(path, accounts):
+    """Минимальный .xlsx (zip + XML, только stdlib): заголовки email/password + строки."""
+    def esc(value):
+        return (str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace('"', "&quot;"))
+    rows_xml = ['<row r="1"><c r="A1" t="inlineStr"><is><t>email</t></is></c>'
+                '<c r="B1" t="inlineStr"><is><t>password</t></is></c></row>']
+    for i, (email, password) in enumerate(accounts, start=2):
+        rows_xml.append(
+            f'<row r="{i}">'
+            f'<c r="A{i}" t="inlineStr"><is><t>{esc(email)}</t></is></c>'
+            f'<c r="B{i}" t="inlineStr"><is><t>{esc(password)}</t></is></c>'
+            f'</row>'
+        )
+    sheet = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+             '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+             f'<sheetData>{"".join(rows_xml)}</sheetData></worksheet>')
+    content_types = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                     '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                     '<Default Extension="xml" ContentType="application/xml"/>'
+                     '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+                     '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                     '</Types>')
+    root_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                 '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                 '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+                 '</Relationships>')
+    workbook = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                '<sheets><sheet name="accounts" sheetId="1" r:id="rId1"/></sheets></workbook>')
+    workbook_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+                     '</Relationships>')
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", content_types)
+        zf.writestr("_rels/.rels", root_rels)
+        zf.writestr("xl/workbook.xml", workbook)
+        zf.writestr("xl/_rels/workbook.xml.rels", workbook_rels)
+        zf.writestr("xl/worksheets/sheet1.xml", sheet)
+    return path
+
+
+def _accounts_domain(selected):
+    """Домен для email аккаунтов: из admin_email или из cowork_subdomain."""
+    admin_email = (selected.get("admin_email") or "").strip()
+    if "@" in admin_email:
+        return admin_email.rsplit("@", 1)[1].strip().lower()
+    subdomain = (selected.get("cowork_subdomain") or "").strip().lower()
+    return subdomain or None
+
+
+def create_stand_accounts(selected, zone):
+    """Пункт 9: создать несколько аккаунтов на стенде → Excel с email/password."""
+    print_info("Введите логины через запятую (логин — часть до @; "
+               "FIO будет подставлен из логина автоматически).")
+    raw = input(f"{action_label()} Логины: ").strip()
+    logins = []
+    for token in re.split(r"[,\s]+", raw):
+        token = token.strip()
+        if not token:
+            continue
+        if "@" in token:
+            token = token.split("@", 1)[0]
+        logins.append(token)
+    if not logins or any(not re.fullmatch(r"[A-Za-z0-9._-]+", l) for l in logins):
+        print_warn("Некорректные логины (допустимы буквы, цифры, точка, дефис, underscore), операция отменена.")
+        return
+    if len(set(logins)) != len(logins):
+        print_warn("Есть повторяющиеся логины, операция отменена.")
+        return
+    domain = _accounts_domain(selected)
+    print_info(f"Домен для email: {domain or 'не определён'}")
+    override = input(f"{action_label()} Enter — принять, либо введите свой домен: ").strip().lower()
+    if override:
+        domain = override
+    if not domain or "@" in domain or " " in domain:
+        print_warn("Некорректный домен, операция отменена.")
+        return
+    open_pod_exec._opened = False
+    print_info("Открываю приложение heimdall в ArgoCD — скопируйте скрипт в веб-терминал.")
+    open_pod_exec(zone["code"], _stand_name(selected), "heimdall", zone.get("app_template"), zone.get("argocd_base"))
+    script = generate_create_accounts_script(logins, domain)
+    out = EXEC_DIR / f"create_accounts_{selected.get('folder') or 'stand'}.sh"
+    EXEC_DIR.mkdir(parents=True, exist_ok=True)
+    out.write_text(script, encoding="utf-8")
+    print_info(f"Скрипт сохранён: {out}")
+    print_info("В списке приложения выберите под heimdall-auth* (вкладка exec), "
+               f"скопируйте содержимое {out.name} целиком в веб-терминал и запустите.")
+    paste = input_with_timeout(f"{action_label()} Вставьте вывод скрипта целиком (Enter без текста — отмена): ", INPUT_TIMEOUT)
+    if paste is None:
+        print_warn("Операция отменена.")
+        return
+    accounts = parse_accounts_output(paste)
+    if not accounts:
+        print_warn("Не удалось распознать ни одной пары email/password в выводе, операция отменена.")
+        return
+    stamp = datetime.now().strftime("%Y%m%d_%H%M")
+    # Папка accounts/ рядом с finder-pro.py: создаём только если её ещё нет
+    if not ACCOUNTS_DIR.exists():
+        ACCOUNTS_DIR.mkdir(parents=True)
+    xlsx_path = ACCOUNTS_DIR / f"accounts_{selected.get('folder') or 'stand'}_{stamp}.xlsx"
+    try:
+        _write_accounts_xlsx(xlsx_path, accounts)
+    except OSError as error:
+        print_error(f"Не удалось сохранить Excel: {error}")
+        return
+    print_info(f"Готово: {len(accounts)} аккаунтов → {xlsx_path}")
+
+# --- Токены LLM (Langfuse) ---
+def _langfuse_ch_query(stand_name, days):
+    """SQL для прямого подсчёта токенов в ClickHouse Langfuse (разбивка по моделям + input/output)."""
+    return (
+        "SELECT provided_model_name AS model, count() AS calls, "
+        "sum(usage_details['input']) AS input_tokens, sum(usage_details['output']) AS output_tokens, "
+        "sum(usage_details['total']) AS total_tokens "
+        "FROM default.observations "
+        f"WHERE environment = '{stand_name}' AND type = 'GENERATION' "
+        "AND start_time >= now() - INTERVAL {days} DAY "
+        "GROUP BY model ORDER BY total_tokens DESC FORMAT TabSeparated"
+    ).format(days=days)
+
+
+def _langfuse_ch_direct_command(stand_name, days):
+    """Команда clickhouse-client для выполнения прямо в поде (веб-терминал ArgoCD), без kubectl."""
+    sql = _langfuse_ch_query(stand_name, days)
+    dq = chr(34)  # двойная кавычка
+    return f"clickhouse-client --query {dq}{sql}{dq}"
+
+
+def _parse_ch_output(raw):
+    """Разбор вывода clickhouse-client; None при пустом/некорректном вводе.
+
+    Понимает и TabSeparated, и пробельный формат (табы из веб-терминала ArgoCD превращаются в пробелы):
+    последние 4 поля строки — числа (calls, input, output, total), всё остальное — имя модели.
+    Возвращает (rows, totals): rows — [(model, calls, inp, out, total)], totals — (calls, inp, out, total)."""
+    def _num(s):
+        s = s.strip()
+        if s in ("", r"\N", "NULL"):
+            return 0
+        return int(float(s))
+    def _split_line(line):
+        parts = line.split("\t")
+        if len(parts) >= 5:
+            return parts[0], parts[1:5]
+        toks = line.split()
+        if len(toks) < 5:
+            return None
+        return " ".join(toks[:-4]), toks[-4:]
+    parsed = []
+    for line in raw.splitlines():
+        if not line.strip():
+            continue
+        split = _split_line(line)
+        if split is None:
+            continue
+        model, nums = split
+        try:
+            calls = _num(nums[0])
+            inp = _num(nums[1])
+            outp = _num(nums[2])
+            tot = _num(nums[3])
+        except ValueError:
+            continue
+        if tot == 0:
+            tot = inp + outp
+        parsed.append((model or "(не указано)", calls, inp, outp, tot))
+    if not parsed:
+        return None
+    totals = (
+        sum(r[1] for r in parsed),
+        sum(r[2] for r in parsed),
+        sum(r[3] for r in parsed),
+        sum(r[4] for r in parsed),
+    )
+    return parsed, totals
+
+
+
+def _fmt_int(value):
+    """Число с разделителем тысяч по-русски (пробел вместо запятой)."""
+    return f"{value:,}".replace(",", " ")
+
+
+
+def langfuse_tokens_clickhouse(selected, zone, days):
+    """Пункт 8, источник ClickHouse: команда → пользователь выполняет в терминале → вставляет результат."""
+    stand_name = selected.get("stand_name") or selected.get("folder", "")
+    # ClickHouse один на все зоны — ссылка всегда tb01
+    ch_app_url = ("https://argocd-tb01.cowork.ru/applications/langfuse/langfuse"
+                  "?view=tree&node=%2FPod%2Flangfuse%2Fchi-langfuse-default-0-0-0&tab=exec&resource=")
+    print_divider()
+    print_info(f"Прямой подсчёт через ClickHouse (стенд {stand_name}, последние {days} дн.).")
+    open_url(ch_app_url)
+    print_info(f"Открыт под chi-langfuse-default-0-0-0 (приложение langfuse, вкладка exec).")
+    print("Выполните команду в открытом веб-терминале пода:")
+    print()
+    print(colorize(_langfuse_ch_direct_command(stand_name, days), CYAN))
+    print()
+    raw = input_with_timeout(f"{action_label()} Вставьте результат целиком (Ctrl+C — отмена): ", INPUT_TIMEOUT)
+    if raw is None:
+        print_warn("Таймаут ожидания. Возврат к меню.")
+        return
+    # пустой результат (команда + промпт, без данных) — нормальная ситуация
+    stripped = raw.strip()
+    if not stripped or all(
+        l.strip().startswith(("root@", "#", "$")) or "clickhouse-client" in l or not l.strip()
+        for l in stripped.splitlines()
+    ):
+        subdomain = selected.get("cowork_subdomain") or ""
+        stand_label = f"{stand_name} ({subdomain})" if subdomain else stand_name
+        print_divider()
+        print_info(f"Данных нет: за последние {days} дн. на стенде {stand_label} не найдено вызовов LLM.")
+        return
+    parsed = _parse_ch_output(raw)
+    if parsed is None:
+        print_error("Не удалось разобрать результат: ожидается строка «модель вызовы input output total» (табы или пробелы).")
+        return
+    _, totals = parsed
+    calls, inp, outp, total = totals
+    print_divider()
+    print_info(f"Токены LLM за последние {days} дн.")
+    print(f"Вызовов LLM: {_fmt_int(calls)}")
+    print(f"Потрачено за период: {_fmt_int(total)} токенов")
+    print(f"  запрос к модели (input):   {_fmt_int(inp)}")
+    print(f"  ответ модели (output):     {_fmt_int(outp)}")
+
+
+def langfuse_tokens(selected, zone):
+    """Пункт 8: сводка по токенам LLM из ClickHouse напрямую (только чтение)."""
+    print()
+    print("  Период:")
+    print("   1. Последние 7 дней")
+    print("   2. Последние 30 дней")
+    print("   3. Другой период (дней)")
+    choice = input_with_timeout("Выберите период (1-3): ", INPUT_TIMEOUT)
+    if choice is None:
+        print_warn("Таймаут ожидания. Возврат к меню.")
+        return
+    choice = choice.strip()
+    if choice == "1":
+        days = 7
+    elif choice == "2":
+        days = 30
+    elif choice.isdigit() and 1 <= int(choice) <= 365:
+        days = int(choice)
+    else:
+        print_warn("Неверный период, операция отменена.")
+        return
+    langfuse_tokens_clickhouse(selected, zone, days)
+
+
+
 # --- Меню ---
 _WS_ACTIONS = {
     "1": ws_change_owner,
@@ -2241,7 +2988,7 @@ def workspace_menu(selected):
         if is_demo:
             print("  6. Добавить базовые пространства")
         print("  0. Назад")
-        choice = input_with_timeout("Выберите функцию: ", 60)
+        choice = input_with_timeout("Выберите функцию: ", INPUT_TIMEOUT)
         if choice is None:
             break
         choice = choice.strip()
@@ -2268,9 +3015,11 @@ def stand_action_menu(selected, script_dir):
         print("  5. Открыть конфигурацию стенда")
         print("  6. Управление пространствами")
         print("  7. Починить роли на стенде")
+        print("  8. Токены LLM (ClickHouse)")
+        print("  9. Создать аккаунты (Excel с email/password)")
         print("  0. Вернуться к поиску")
         print()
-        action = input_with_timeout("Выберите действие (0-7): ", 300)
+        action = input_with_timeout("Выберите действие (0-9): ", INPUT_TIMEOUT)
         if action is None:
             print_warn("Таймаут ожидания. Возврат к поиску.")
             break
@@ -2295,55 +3044,28 @@ def stand_action_menu(selected, script_dir):
                 fix_empty_roles(selected, zone)
             else:
                 print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
+        elif action == "8":
+            zone = resolve_zone(selected)
+            if zone:
+                langfuse_tokens(selected, zone)
+            else:
+                print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
+        elif action == "9":
+            zone = resolve_zone(selected)
+            if zone:
+                create_stand_accounts(selected, zone)
+            else:
+                print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
         else:
             print_warn("Неверный ввод, попробуйте снова.")
 
 # --- Точка входа ---
-def _init_zones(repo_root):
-    if not ZONES_CONFIG_FILE.exists():
-        zones = discover_and_save_zones(repo_root)
-        print_info(f"Создан файл zones_config.json с {len(zones)} кластерами.")
-    else:
-        zones = load_zones()
-        check_and_update_zones(repo_root, zones)
-    return zones
 
-
-def _verify_zones(repo_root, zones):
-    """Самопроверка при старте: каждая зона существует, читаема и содержит конфиги."""
-    print_info("Самопроверка доступности зон:")
-    missing = []
-    unreadable = []
-    empty = []
-    for zone in zones:
-        base = repo_root / zone["path"]
-        if not base.exists():
-            missing.append(zone)
-            print(f"  {_tag('ERROR', RED)} {zone['label']}: папка {zone['path']} не найдена")
-            continue
-        try:
-            stand_prefixes = tuple(zone.get("stand_prefixes", ("cowork-",)))
-            configs = [p for p in base.rglob(CONFIG) if p.parent.name.startswith(stand_prefixes)]
-        except OSError as error:
-            unreadable.append(zone)
-            print(f"  {_tag('ERROR', RED)} {zone['label']}: папка {zone['path']} не читается ({error})")
-            continue
-        if not configs:
-            empty.append(zone)
-            print(f"  {_tag('WARN', YELLOW)} {zone['label']}: папка {zone['path']} не содержит config.yaml")
-        else:
-            print(f"  {_tag('OK', GREEN)} {zone['label']}: {len(configs)} конфиг(ов) в {zone['path']}")
-    if missing or unreadable:
-        print_error("Ошибка: некоторые зоны недоступны. Продолжение невозможно.")
-        sys.exit(1)
-    if empty:
-        print(f"  {_tag('WARN', YELLOW)} В некоторых зонах нет конфигов — поиск по ним вернёт пусто.")
-    print_info(f"Самопроверка завершена: зон проверено {len(zones)}, ошибок {len(missing) + len(unreadable)}.")
 
 
 def _prompt_search_criteria():
     print("\n" + "=" * 50)
-    print("Введите критерии поиска (можно оставить пустым, но хотя бы одно поле):")
+    print("Введите критерии поиска (заполни хотя бы одно поле):")
     subdomain = input("  cowork_subdomain: ").strip()
     email = input("  email: ").strip()
     inn = input("  ИНН: ").strip()
@@ -2362,10 +3084,9 @@ def _prompt_search_criteria():
 def _handle_keyboard_interrupt():
     print("\nВыполнение остановлено пользователем.")
     raise SystemExit(130)
-def main():
-    print_logo()
-    select_runtime_mode()
-    script_dir = Path(__file__).parent.resolve()
+def _init_environment(script_dir):
+    """Общая инициализация (репозиторий, зоны, pull, watcher) для обоих режимов запуска."""
+    global WATCHER
     try:
         repo_root = get_repo_root(script_dir)
     except FileNotFoundError as e:
@@ -2381,7 +3102,7 @@ def main():
         print("  1. Указать другой путь к репозиторию")
         print("  2. Склонировать репозиторий в эту папку")
         print("  3. Выйти")
-        choice = input_with_timeout("Выберите вариант (1-3): ", 300)
+        choice = input_with_timeout("Выберите вариант (1-3): ", INPUT_TIMEOUT)
         if choice is None or choice.strip() == "3":
             print_warn("Завершение работы.")
             sys.exit(1)
@@ -2398,12 +3119,28 @@ def main():
         print_warn("Неверный ввод, попробуйте снова.")
 
     _auto_restore_repo(repo_root)
-    pull_result = pull_repo(repo_root, script_dir / "news")
-    zones = _init_zones(repo_root)
-    _verify_zones(repo_root, zones)
+    pull_result = pull_repo(repo_root)
+    zones = ZONES.init(repo_root)
+    ZONES.verify(repo_root, zones)
     report_pull(repo_root, script_dir / "news", *pull_result)
-
+    WATCHER = RepoChangeWatcher(repo_root)
+    WATCHER.start()
+    return repo_root, zones
+def main():
+    print_logo()
+    select_runtime_mode()
+    script_dir = Path(__file__).parent.resolve()
+    # Режим запуска: без аргумента — сразу поиск стендов (старый вид),
+    # «token» — сразу подсчёт утилизации токенов.
+    mode = (sys.argv[1].strip().lower() if len(sys.argv) > 1 else "")
+    repo_root, zones = _init_environment(script_dir)
+    if mode == "token":
+        token_utilization_report(repo_root, script_dir, zones)
+        return
     while True:
+        # Фоновая проверка (раз в 15 минут): уведомляем только в простое,
+        # перед экраном критериев поиска — во время работы в меню не мешаем.
+        check_and_notify(repo_root, script_dir / "news", zones)
         criteria = _prompt_search_criteria()
         if criteria is None:
             continue
