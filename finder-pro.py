@@ -64,7 +64,7 @@ def open_file(path):
         webbrowser.open(Path(path).resolve().as_uri())
 
 # --- Версия ---
-VERSION = "v4.0.21"
+VERSION = "v4.1.2"
 # Единый таймаут ожидания ввода для всех меню (секунды)
 INPUT_TIMEOUT = 300
 
@@ -133,6 +133,7 @@ GREEN = '\033[92m'
 YELLOW = '\033[93m'
 RED = '\033[91m'
 CYAN = '\033[96m'
+MAGENTA = '\033[95m'  # фиолетовый
 RESET = '\033[0m'
 
 # --- Цветной вывод ---
@@ -1078,7 +1079,7 @@ def token_utilization_report(repo_root, script_dir, zones):
     print_info(f"Файл сохранён: {out_path}")
 
 # --- Поиск стендов ---
-_CONFIG_KEYS = ("stand_name", "cowork_subdomain", "admin_email", "expiry_date", "cowork_revision", "public_hostname")
+_CONFIG_KEYS = ("stand_name", "cowork_subdomain", "admin_email", "expiry_date", "cowork_revision", "public_hostname", "status")
 
 
 def read_config(file_path):
@@ -1108,6 +1109,35 @@ def _matches(data, criteria):
     return bool(inn and data.get("inn") and inn in data["inn"])
 
 
+def _is_empty_stand(data):
+    """Пустой (незаполненный) стенд: нет ни admin_email, ни ИНН, ни expiry_date."""
+    return not (data.get("admin_email") or data.get("inn") or data.get("expiry_date"))
+
+
+def _exact_match(data, criteria, folder):
+    """Точное совпадение критерия поиска с именем папки/стенда, subdomain, email или ИНН.
+
+    Если пользователь ввёл значение целиком (а не подстроку) — стенд показываем
+    даже при фильтрации пустых/дефолтных."""
+    folder_l = folder.strip().lower()
+    for key, value in (
+        ("stand_name", data.get("stand_name")),
+        ("subdomain", data.get("cowork_subdomain")),
+    ):
+        crit = (criteria.get(key) or "").strip().lower()
+        val = (value or "").strip().lower()
+        if crit and (crit == val or crit == folder_l):
+            return True
+    email_crit = (criteria.get("email") or "").strip().lower()
+    email_val = (data.get("admin_email") or "").strip().lower()
+    if email_crit and email_crit == email_val:
+        return True
+    inn_crit = (criteria.get("inn") or "").strip()
+    if inn_crit and data.get("inn") and inn_crit in data["inn"]:
+        return True
+    return False
+
+
 def find_stands(root, zones, criteria):
     results = []
     for zone in zones:
@@ -1120,7 +1150,18 @@ def find_stands(root, zones, criteria):
             if not stand_dir.name.startswith(stand_prefixes):
                 continue
             data = read_config(config_path)
-            if not _matches(data, criteria):
+            # Точное совпадение по имени — показываем даже «пустой»/дефолтный стенд.
+            exact = _exact_match(data, criteria, stand_dir.name)
+            # Показываем, если нашлось совпадение по полям конфига ИЛИ точное
+            # совпадение критерия с именем папки/стенда (конфиг может быть неполным).
+            if not _matches(data, criteria) and not exact:
+                continue
+            # Пустые стенды (без admin_email/ИНН/expiry_date) в выдачу не попадаем.
+            if not exact and _is_empty_stand(data):
+                continue
+            # Дефолтный subdomain (совпадает с именем папки) — стенд незанятый, тоже не показываем.
+            sub = (data.get("cowork_subdomain") or "").strip()
+            if not exact and sub and sub == stand_dir.name:
                 continue
             data["folder"] = stand_dir.name
             data["stand_dir"] = zone["label"]
@@ -1129,6 +1170,19 @@ def find_stands(root, zones, criteria):
             data["config_path"] = config_path
             results.append(data)
     return results
+
+
+# Подсветка status стенда: trial — жёлтый, grace — голубой, expired — красный, active — зелёный; неизвестные — фиолетовые.
+_STATUS_COLORS = {
+    "trial": YELLOW,
+    "grace": CYAN,
+    "expired": RED,
+    "active": GREEN,
+}
+
+
+def _status_color(status):
+    return _STATUS_COLORS.get((status or "").strip().lower(), MAGENTA)
 
 
 def _print_stand(idx, data):
@@ -1141,6 +1195,8 @@ def _print_stand(idx, data):
     print(f"   admin_email: {data.get('admin_email', 'N/A')}")
     print(f"   ИНН: {data.get('inn', 'N/A')}")
     print(f"   expiry_date: {data.get('expiry_date', 'N/A')}")
+    if data.get('status'):
+        print(f"   status: {colorize(data['status'], _status_color(data['status']))}")
     print(f"   cowork_revision: {data.get('cowork_revision', 'N/A')}")
     if data.get("broken"):
         print("   [broken stand]")
@@ -1164,11 +1220,11 @@ def select_stand(results):
 
 # --- Быстрые действия (браузер) ---
 def open_links(selected, script_dir, zone=None):
-    helper = script_dir / "admin-helper-new.html"
+    helper = script_dir / "helper.html"
     if helper.exists():
         open_file(str(helper))
     else:
-        print_warn("admin-helper-new.html не найден.")
+        print_warn("helper.html не найден.")
     if zone and zone.get("links_app"):
         # Особенность зоны: приложение Admin Helper — не {folder}, а links_app
         # (sdb: cowork/cowork-heimdall вместо cowork/cowork).
@@ -2600,6 +2656,137 @@ def fix_empty_roles(selected, zone):
         "Скрипт с DRY_RUN=True сохранён в exec/.",
     )
 
+# --- Сброс зависших сессий (stale running → active) ---
+_RESET_STALE_SESSIONS_TEMPLATE = '''from datetime import datetime, timezone
+
+# True — только показать, какие сессии будут сброшены, ничего не менять
+DRY_RUN = __DRY__
+# Порог staleness в минутах: сессия считается зависшей, если last_active_at старше этого значения.
+STALE_MINUTES = 5
+# Конкретный session_id для точечного сброса (None — массовый режим по порогу).
+SESSION_ID = __SESSION_ID__
+DEFAULT_YGGDRASIL_URL = __YGG__
+
+async def find_stale_sessions(connection: asyncpg.Connection) -> list[dict]:
+    if SESSION_ID is not None:
+        # Точечный режим: одна конкретная сессия, без проверки порога.
+        rows = await connection.fetch(
+            """
+            SELECT id::text AS id, status, last_active_at
+            FROM sessions
+            WHERE id = $1 AND status = 'running'
+              AND interrupt_data IS NULL
+            """,
+            SESSION_ID,
+        )
+    else:
+        # Массовый режим: все stale running-сессии старше порога.
+        rows = await connection.fetch(
+            """
+            SELECT id::text AS id, status, last_active_at
+            FROM sessions
+            WHERE status = 'running'
+              AND interrupt_data IS NULL
+              AND last_active_at < now() - make_interval(mins => $1)
+            ORDER BY last_active_at
+            """,
+            STALE_MINUTES,
+        )
+    return [dict(r) for r in rows]
+
+async def main() -> None:
+    yggdrasil_url = get_database_url(("YGGDRASIL_DATABASE_URL",), DEFAULT_YGGDRASIL_URL)
+    connection = await asyncpg.connect(yggdrasil_url)
+    try:
+        mode = f"точечный (session_id={SESSION_ID})" if SESSION_ID is not None else f"массовый (порог {STALE_MINUTES} мин)"
+        print(f"режим: {'DRY RUN — ничего не будет изменено' if DRY_RUN else 'APPLY'}")
+        print(f"способ поиска: {mode}")
+        print()
+
+        stale = await find_stale_sessions(connection)
+        if not stale:
+            print("Зависших сессий не найдено.")
+            return
+
+        print(f"Найдено зависших сессий: {len(stale)}")
+        print()
+        for row in stale:
+            stuck_for = (datetime.now(timezone.utc) - row["last_active_at"]).total_seconds() / 60
+            print(f"  session_id={row['id']}")
+            print(f"    last_active_at: {row['last_active_at']} UTC")
+            print(f"    застряла: ~{stuck_for:.1f} мин")
+        print()
+
+        if DRY_RUN:
+            print(f"[DRY RUN] Будут сброшены: {len(stale)} шт.")
+            print("[DRY RUN] Ничего не изменено. Для боевого запуска запустите скрипт с DRY_RUN=False.")
+            return
+
+        updated = 0
+        for row in stale:
+            res = await connection.execute(
+                """
+                UPDATE sessions
+                SET status = 'active', last_active_at = now()
+                WHERE id = $1 AND status = 'running' AND interrupt_data IS NULL
+                """,
+                row["id"],
+            )
+            if res == "UPDATE 1":
+                updated += 1
+                stuck_for = (datetime.now(timezone.utc) - row["last_active_at"]).total_seconds() / 60
+                print(f"[OK] session_id={row['id']} сброшена (застряла ~{stuck_for:.1f} мин)")
+            else:
+                print(f"[SKIP] session_id={row['id']}: статус уже изменился или есть interrupt_data")
+        print()
+        print(f"итого: сброшено={updated}, пропущено={len(stale) - updated}")
+    finally:
+        await connection.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+'''
+
+
+def generate_reset_stale_sessions_script(dry_run, ygg_url, session_id=None):
+    sid = json.dumps(session_id) if session_id else "None"
+    return _render_script(_RESET_STALE_SESSIONS_TEMPLATE,
+                          DRY="True" if dry_run else "False",
+                          SESSION_ID=sid,
+                          YGG=json.dumps(ygg_url))
+
+
+def reset_stale_sessions(selected, zone):
+    """Пункт 10: сброс зависших сессий (running → active) в БД Yggdrasil."""
+    print_info("Выберите режим сброса:")
+    print("  1. Все зависшие сессии (stale > 5 минут)")
+    print("  2. Конкретная сессия по ID")
+    choice = input_with_timeout("Режим (1/2): ", INPUT_TIMEOUT)
+    if choice is None:
+        print_warn("Таймаут ожидания. Операция отменена.")
+        return
+    choice = choice.strip()
+    session_id = None
+    if choice == "2":
+        raw = input(f"{action_label()} Session ID (UUID): ").strip()
+        import uuid as _uuid
+        try:
+            _uuid.UUID(raw)
+        except ValueError:
+            print_error(f"Некорректный UUID: {raw}. Операция отменена.")
+            return
+        session_id = raw
+    elif choice != "1":
+        print_warn("Неверный ввод. Операция отменена.")
+        return
+    ygg, _ = prompt_db_urls(selected, zone, need_heimdall=False)
+    _run_with_dry_run(
+        zone, "reset_stale_sessions.py",
+        lambda dry: generate_reset_stale_sessions_script(dry, ygg, session_id),
+        "Скрипт с DRY_RUN=True сохранён в exec/. Для боевого запуска повторите операцию.",
+    )
+
+
 # --- Создание аккаунтов на стенде (auth_sdk в поде heimdall-auth) ---
 _CREATE_ACCOUNTS_TEMPLATE = '''import asyncio, secrets, string, sys, httpx
 try:
@@ -3015,11 +3202,12 @@ def stand_action_menu(selected, script_dir):
         print("  5. Открыть конфигурацию стенда")
         print("  6. Управление пространствами")
         print("  7. Починить роли на стенде")
-        print("  8. Токены LLM (ClickHouse)")
-        print("  9. Создать аккаунты (Excel с email/password)")
+        print("  8. Токены LLM")
+        print("  9. Создать аккаунты")
+        print("  10. Сброс зависших сессий")
         print("  0. Вернуться к поиску")
         print()
-        action = input_with_timeout("Выберите действие (0-9): ", INPUT_TIMEOUT)
+        action = input_with_timeout("Выберите действие (0-10): ", INPUT_TIMEOUT)
         if action is None:
             print_warn("Таймаут ожидания. Возврат к поиску.")
             break
@@ -3054,6 +3242,12 @@ def stand_action_menu(selected, script_dir):
             zone = resolve_zone(selected)
             if zone:
                 create_stand_accounts(selected, zone)
+            else:
+                print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
+        elif action == "10":
+            zone = resolve_zone(selected)
+            if zone:
+                reset_stale_sessions(selected, zone)
             else:
                 print_warn(f"Не удалось определить зону из stand_dir={selected.get('stand_dir', '?')}.")
         else:
