@@ -1,0 +1,163 @@
+Изменения от 2026-10-06 14:55:16.581134
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0304/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0304/config.yaml
+index 36e1243e4..bccae06ad 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0304/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0304/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0304
+ cowork_s3_label: cowork-st02-0304
+-cowork_subdomain: cowork-st02-0304
++cowork_subdomain: crpp
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: pozdnyak@crpp.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '7838454260'
++  expiry_date: '2026-10-13'
++  status: trial
++  id: 0edffb03-1fb7-4fbd-83fc-f127bc9818a4
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0305/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0305/config.yaml
+index cdab857d0..28385f535 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0305/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0305/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0305
+ cowork_s3_label: cowork-st02-0305
+-cowork_subdomain: cowork-st02-0305
++cowork_subdomain: servis75
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: servis.75@mail.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '5036161593'
++  expiry_date: '2026-10-13'
++  status: trial
++  id: 729089f2-32cf-46b9-ab33-b27bd08e4f41
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0307/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0307/config.yaml
+index e7cb6e546..da3dafeca 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0307/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0307/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0307
+ cowork_s3_label: cowork-st02-0307
+-cowork_subdomain: cowork-st02-0307
++cowork_subdomain: mirax-safety
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: minazevrh@mirax-safety.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '5920040229'
++  expiry_date: '2026-10-13'
++  status: trial
++  id: f2ed8b2f-bcd5-48c5-ad11-b8b7ce1cf00f
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0435/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0435/config.yaml
+index cda905570..a20ae1357 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0435/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0435/config.yaml
+@@ -16,7 +16,7 @@ bootstrap: true
+ trial: false
+ admin_email: aleksey.evseev@exponenta.ru
+ meta:
+-  status: expired
+-  expiry_date: '2026-10-04'
++  status: grace
++  expiry_date: '2026-10-16'
+   inn: '7725318474'
+   id: 3bca2922-8608-49d0-94f5-4c3117320b3c
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0551/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0551/config.yaml
+index c3eda0f91..3dfa26f35 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0551/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0551/config.yaml
+@@ -21,4 +21,4 @@ meta:
+   inn: '5262154504'
+   expiry_date: '2026-10-16'
+   id: 15e5aeff-2aca-44eb-b4c7-de5a46bc3453
+-  status: expired
++  status: grace
+diff --git a/dev/cowork/apps/heimdall/heimdall-argocd.yaml b/dev/cowork/apps/heimdall/heimdall-argocd.yaml
+index 92ae50949..16db98836 100755
+--- a/dev/cowork/apps/heimdall/heimdall-argocd.yaml
++++ b/dev/cowork/apps/heimdall/heimdall-argocd.yaml
+@@ -93,6 +93,7 @@ spec:
+           helm:
+             passCredentials: true
+             releaseName: openfga
++            skipSchemaValidation: true
+             valueFiles:
+               - $helm/{{.environment}}/openfga/openfga-nxs-values.yaml
+               - $helm/overrides/sizing/{{ dig "sizing" "trial" . }}/openfga/openfga-nxs-values.yaml
+diff --git a/stage/cowork/apps/heimdall/heimdall-argocd.yaml b/stage/cowork/apps/heimdall/heimdall-argocd.yaml
+index db378e834..447626f1b 100755
+--- a/stage/cowork/apps/heimdall/heimdall-argocd.yaml
++++ b/stage/cowork/apps/heimdall/heimdall-argocd.yaml
+@@ -90,6 +90,39 @@ spec:
+             parameters:
+               - name: '{{ if eq (dig "pg_stat_statements_enabled" false .) true }}nuc-cloudnativepg.clusters.heimdall-auth-postgres.spec.postgresql.shared_preload_libraries{{ else }}argocdNoop.pgStatStatements{{ end }}'
+                 value: '{{ if eq (dig "pg_stat_statements_enabled" false .) true }}{pg_stat_statements}{{ else }}false{{ end }}'
++        - repoURL: 'https://github.com/nixys/nxs-universal-chart.git'
++          targetRevision: v3.0.18
++          path: .
++          helm:
++            passCredentials: true
++            releaseName: openfga
++            valueFiles:
++              - $helm/{{.environment}}/heimdall/openfga-nxs-values.yaml
++              - $helm/overrides/sizing/{{ dig "sizing" "trial" . }}/heimdall/openfga-nxs-values.yaml
++            valuesObject:
++              deployments:
++                openfga:
++                  nodeSelector:
++                    platform.cowork/node-pool: '{{ dig "stand_node_label" "cowork" . }}'
++                  tolerations:
++                    - key: dedicated
++                      operator: Equal
++                      value: '{{ dig "stand_node_label" "cowork" . }}'
++                      effect: NoSchedule
++              nuc-cloudnativepg:
++                clusters:
++                  openfga-postgres:
++                    spec:
++                      storage:
++                        storageClass: '{{ dig "block_volume_storage_class" "topolvm-csi" . }}'
++                      affinity:
++                        nodeSelector:
++                          platform.cowork/node-pool: '{{ dig "stand_node_label" "cowork" . }}'
++                        tolerations:
++                          - key: dedicated
++                            operator: Equal
++                            value: '{{ dig "stand_node_label" "cowork" . }}'
++                            effect: NoSchedule
+         - repoURL: 'https://git.sberdevices.ru/gigabb/cowork/helm_values_cowork.git'
+           targetRevision: "{{.cowork_revision}}"
+           ref: helm

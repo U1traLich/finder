@@ -1,0 +1,246 @@
+Изменения от 2026-10-12 12:07:38.133221
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0157/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0157/config.yaml
+index a56c0b5ba..4e292d7ea 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0157/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0157/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0157
+ cowork_s3_label: cowork-st02-0157
+-cowork_subdomain: "cowork-st02-0157"
++cowork_subdomain: "aopouomz"
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+ autosync: true
+-occupied: false
++occupied: true
++bootstrap: true
++admin_email: 101105port@gmail.com
++trial: true
++meta:
++  expiry_date: '2026-10-19'
++  status: trial
++  inn: '6672315362'
++  id: 1bf142d9-f6e1-414e-b4f0-1269acf09b93
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0216/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0216/config.yaml
+index 06cb0d8b5..f01081741 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0216/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0216/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0216
+ cowork_s3_label: cowork-st02-0216
+-cowork_subdomain: "cowork-st02-0216"
++cowork_subdomain: "desob-test18"
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+ autosync: true
+-occupied: false
++occupied: true
++bootstrap: true
++admin_email: desoboton@gmail.com
++trial: true
++meta:
++  expiry_date: '2026-10-19'
++  status: trial
++  inn: '9731081072'
++  id: 01872bf8-3b90-4a91-85d9-3624a5577ada
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0248/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0248/config.yaml
+index b7f403616..53e36ee70 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0248/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0248/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0248
+ cowork_s3_label: cowork-st02-0248
+-cowork_subdomain: "cowork-st02-0248"
++cowork_subdomain: "desob-test19"
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+ autosync: true
+-occupied: false
++occupied: true
++bootstrap: true
++admin_email: desoboton@gmail.com
++trial: true
++meta:
++  expiry_date: '2026-10-19'
++  status: trial
++  inn: '7804568396'
++  id: 51046d72-36c8-4f0b-b47c-d0f8b064e7ab
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0121/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0121/config.yaml
+index 7df447140..558bebfc8 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0121/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0121/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: false
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb04-0121"
+ cowork_s3_label: "cowork-tb04-0121"
+-cowork_subdomain: "sunchita"
++cowork_subdomain: "gold"
+ cowork_revision: "70be2cc6d28abd7a60bad3f6ff617733ae9cf7a9"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+diff --git a/dev/cowork/stands/cowork-dev-int-team-02/config.yaml b/dev/cowork/stands/cowork-dev-int-team-02/config.yaml
+index 0c2855608..4ad5f53b6 100644
+--- a/dev/cowork/stands/cowork-dev-int-team-02/config.yaml
++++ b/dev/cowork/stands/cowork-dev-int-team-02/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-int-team-02"
+-cowork_revision: "feature/SDBPROD-1878/albato-catalog-certs"
++cowork_revision: "feature/SDBPROD-1617/exchange"
+ argocd_shard: "1"
+ stand_node_label: "cowork"
+ cowork_s3_label: "cowork-dev"
+diff --git a/dev/cowork/stands/cowork-dev-qa-06/config.yaml b/dev/cowork/stands/cowork-dev-qa-06/config.yaml
+index 40f6b4647..ed53a36c1 100644
+--- a/dev/cowork/stands/cowork-dev-qa-06/config.yaml
++++ b/dev/cowork/stands/cowork-dev-qa-06/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-qa-06"
+-cowork_revision: "fix/SDBPROD-1908/user-friendly-mimir-errors"
++cowork_revision: "feature/SDBPROD-1686/prompt-trim"
+ argocd_shard: "1"
+ stand_node_label: "cowork"
+ cowork_s3_label: "cowork-dev"
+diff --git a/dev/cowork/stands/cowork-dev-qa-08/config.yaml b/dev/cowork/stands/cowork-dev-qa-08/config.yaml
+index 31a784f54..71b387996 100644
+--- a/dev/cowork/stands/cowork-dev-qa-08/config.yaml
++++ b/dev/cowork/stands/cowork-dev-qa-08/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-qa-08"
+-cowork_revision: "master"
++cowork_revision: "rc-26.10.2"
+ argocd_shard: "1"
+ stand_node_label: "cowork"
+ cowork_s3_label: "cowork-dev"
+diff --git a/stage/cowork/apps/helheim/helheim-argocd.yaml b/stage/cowork/apps/helheim/helheim-argocd.yaml
+index de0a16547..be0e78da4 100755
+--- a/stage/cowork/apps/helheim/helheim-argocd.yaml
++++ b/stage/cowork/apps/helheim/helheim-argocd.yaml
+@@ -35,6 +35,30 @@ spec:
+         app.kubernetes.io/part-of: helheim
+     spec:
+       project: "cowork"
++      destination:
++        server: '{{ dig "argocd_destination_server" "https://kubernetes-shard-1.argocd.svc" . }}'
++        namespace: "{{.stand_name}}"
++      syncPolicy:
++        automated: null
++        syncOptions:
++        - RespectIgnoreDifferences=true
++        - PruneLast=true
++        retry:
++          limit: 10
++          backoff:
++            duration: 10s
++            factor: 2
++            maxDuration: 5m
++      revisionHistoryLimit: 3
++      ignoreDifferences:
++        - group: ""
++          kind: Secret
++          name: weaviate-cluster-api-basic-auth
++          jsonPointers:
++            - /data/username
++            - /data/password
++  templatePatch: |
++    spec:
+       sources:
+         - chart: qdrant
+           repoURL: 'https://qdrant.github.io/qdrant-helm'
+@@ -85,7 +109,11 @@ spec:
+               base_domain: "{{.base_domain}}"
+               cowork_subdomain: "{{.cowork_subdomain}}"
+               stand_name: "{{.stand_name}}"
++              stand_node_label: '{{ dig "stand_node_label" "cowork" . }}'
+               env: "{{.environment}}"
++    {{- if eq (dig "helheim" "vector-db" "" .) "weaviate" }}
++              helheim_vector_store: weaviate
++    {{- end }}
+               nuc-external-secrets:
+                 externalSecrets:
+                   helheim-secret:
+@@ -93,7 +121,7 @@ spec:
+                       target:
+                         template:
+                           data:
+-                            HELHEIM_S3_BUCKET_NAME: "{{ dig \"cowork_s3_label\" .stand_name . }}-rag"
++                            HELHEIM_S3_BUCKET_NAME: '{{ dig "cowork_s3_label" .stand_name . }}-rag'
+               deployments:
+                 helheim:
+                   nodeSelector:
+@@ -130,26 +158,43 @@ spec:
+             parameters:
+               - name: '{{ if eq (dig "pg_stat_statements_enabled" false .) true }}nuc-cloudnativepg.clusters.helheim-postgres.spec.postgresql.shared_preload_libraries{{ else }}argocdNoop.pgStatStatements{{ end }}'
+                 value: '{{ if eq (dig "pg_stat_statements_enabled" false .) true }}{pg_stat_statements}{{ else }}false{{ end }}'
++    {{- if eq (dig "helheim" "vector-db" "" .) "weaviate" }}
++        - repoURL: nexus.gigab2b.ru/gigab2b-cowork-helm-charts/nixys
++          targetRevision: 3.0.18
++          chart: nxs-universal-chart
++          helm:
++            passCredentials: true
++            releaseName: weaviate-helheim-nxs
++            valueFiles:
++              - $helm/{{.environment}}/helheim/weaviate-helheim-nxs-values.yaml
++              - $helm/overrides/sizing/{{ dig "sizing" "trial" . }}/helheim/weaviate-helheim-nxs-values.yaml
++            valuesObject:
++              jobs:
++                weaviate-rbac-bootstrap: &weaviate-affinity
++                  nodeSelector:
++                    platform.cowork/node-pool: '{{ dig "stand_node_label" "cowork" . }}'
++                  tolerations:
++                    - key: dedicated
++                      operator: Equal
++                      value: '{{ dig "stand_node_label" "cowork" . }}'
++                      effect: NoSchedule
++        - chart: weaviate
++          repoURL: 'https://weaviate.github.io/weaviate-helm/'
++          targetRevision: 17.8.3
++          helm:
++            passCredentials: true
++            releaseName: weaviate-helheim
++            valueFiles:
++              - $helm/{{.environment}}/helheim/weaviate-helheim-values.yaml
++              - $helm/overrides/sizing/{{ dig "sizing" "trial" . }}/helheim/weaviate-helheim-values.yaml
++            valuesObject:
++              <<: *weaviate-affinity
++              storage:
++                storageClassName: '{{ dig "block_volume_storage_class" "topolvm-csi" . }}'
++    {{- end }}
+         - repoURL: 'https://git.sberdevices.ru/gigabb/cowork/helm_values_cowork.git'
+           targetRevision: "{{.cowork_revision}}"
+           ref: helm
+-      destination:
+-        server: '{{ dig "argocd_destination_server" "https://kubernetes-shard-1.argocd.svc" . }}'
+-        namespace: "{{.stand_name}}"
+-      syncPolicy:
+-        automated: null
+-        syncOptions:
+-        - RespectIgnoreDifferences=true
+-        - PruneLast=true
+-        retry:
+-          limit: 10
+-          backoff:
+-            duration: 10s
+-            factor: 2
+-            maxDuration: 5m
+-      revisionHistoryLimit: 3
+-  templatePatch: |
+-    spec:
+       syncPolicy:
+         automated:
+           enabled: {{ dig "autosync" false . }}

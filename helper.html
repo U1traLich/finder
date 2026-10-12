@@ -47,6 +47,40 @@
     font-weight: 700;
     line-height: 1.2;
   }
+  .header-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+  }
+  .stand-version {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .stand-version select {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 8px;
+    background: #fafafa;
+    color: var(--text);
+    font: 13px var(--font-sans);
+    cursor: pointer;
+    outline: none;
+  }
+  .stand-version select:focus { border-color: rgba(0, 0, 0, 0.35); }
+  details.unavailable { margin-top: 18px; }
+  details.unavailable > summary {
+    cursor: pointer;
+    padding: 6px 2px;
+    color: var(--muted);
+    font-size: 13px;
+    user-select: none;
+  }
+  details.unavailable > .list { margin-top: 6px; opacity: 0.7; }
   h1 .version {
     margin-left: 8px;
     color: var(--muted);
@@ -119,6 +153,11 @@
   .tag.pod-heimdall-auth { color: var(--blue); background: var(--blue-tint); }
   .tag.pod-yggdrasil { color: var(--purple); background: var(--purple-tint); }
   .tag.danger { color: var(--red); background: var(--red-tint); }
+  .tag.range {
+    background: transparent;
+    border: 1px solid var(--border);
+    font-weight: 400;
+  }
   .chevron {
     color: var(--muted);
     font-size: 11px;
@@ -214,16 +253,63 @@
 <body>
 <main>
   <header>
-    <h1>Helper <span class="version" id="version"></span></h1>
+    <div class="header-row">
+      <h1>Helper <span class="version" id="version"></span></h1>
+      <label class="stand-version">Версия стенда
+        <select id="stand-version"></select>
+      </label>
+    </div>
     <input id="search" type="text" placeholder="Поиск команд…" autocomplete="off" autofocus />
   </header>
 
   <div class="list" id="list"></div>
   <div id="empty-state">Ничего не найдено</div>
+  <details class="unavailable" id="unavailable" hidden>
+    <summary id="unavailable-title"></summary>
+    <div class="list" id="unavailable-list"></div>
+  </details>
 </main>
 
 <script>
-const HELPER_VERSION = "08.09.2026";
+const RELEASES = [
+  "26.07.1", "26.07.2", "26.07.3",
+  "26.08.1", "26.08.2", "26.08.3", "26.08.4",
+  "26.09.1", "26.09.2", "26.09.3", "26.09.4",
+];
+const LATEST_RELEASE = RELEASES[RELEASES.length - 1];
+const MASTER_VERSION = "master";
+const VERSION_LABELS = { [MASTER_VERSION]: "master / dev-стенд" };
+const VERSION_STORAGE_KEY = "helper.stand-version";
+
+function compareVersions(left, right) {
+  if (left === right) return 0;
+  if (left === MASTER_VERSION) return 1;
+  if (right === MASTER_VERSION) return -1;
+  const leftParts = left.split(".").map(Number);
+  const rightParts = right.split(".").map(Number);
+  for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
+    const difference = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (difference !== 0) return difference;
+  }
+  return 0;
+}
+
+function isAvailableIn(cmd, version) {
+  if (cmd.after && compareVersions(version, cmd.after) <= 0) return false;
+  if (cmd.until && compareVersions(version, cmd.until) > 0) return false;
+  return true;
+}
+
+function versionRangeLabel(cmd) {
+  const bounds = [];
+  if (cmd.after) bounds.push(`новее ${cmd.after}`);
+  if (cmd.until) bounds.push(`до ${cmd.until}`);
+  return bounds.join(" · ");
+}
+
+function versionLabel(version) {
+  return VERSION_LABELS[version] || version;
+}
 
 function parseEmailList(raw) {
   const seen = new Set();
@@ -444,431 +530,222 @@ PY`,
   },
   {
     id: "grant-admin",
-    title: "3. Выдать админский доступ",
+    title: "3. Выдать роль администратора тенанта",
     pods: [POD_HEIMDALL],
-    hint: "RBAC-роль «Администратор» (её читает админка) плюс три legacy access_grants. Пользователь уже должен существовать в Auth provider.",
+    hint: "Назначает системную роль «Администратор» через CLI ролевой модели. Прямая роль одна: прежняя админская или кастомная снимается тем же действием. Пользователь должен уже существовать на стенде. Роль участника остаётся, её снять нельзя.",
     fields: [
       { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
     ],
     render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
-import asyncio, sys, httpx
-from contextlib import AsyncExitStack
-try:
-    from auth_sdk import AuthClient, KeycloakProviderConfig
-except ModuleNotFoundError:
-    from heimdall_auth import AuthClient, KeycloakProviderConfig
-from auth_service.cli.rbac.errors import RoleNotFoundError
-from auth_service.cli.rbac.service import RbacCliService
-try:
-    from auth_service.bootstrap.config import get_settings
-except ModuleNotFoundError:
-    from auth_service.config import get_settings
-try:
-    from auth_service.infrastructure.db.client import Database
-except ModuleNotFoundError:
-    from auth_service.db.client import Database
-try:
-    from auth_service.infrastructure.db.transactions import DatabaseTransactionManager
-except ModuleNotFoundError:
-    from auth_service.db.transactions import DatabaseTransactionManager
-from auth_service.features.permissions.manifest_loader import load_permission_manifests
-from auth_service.features.permissions.repository import PermissionRepository
-from auth_service.features.permissions.service import PermissionService
-from auth_service.features.rbac.read_repository import RbacReadRepository
-from auth_service.features.rbac.write_repository import RbacWriteRepository
-from auth_service.main import PERMISSIONS_DIR
+import sys
 
 _ESC = chr(27)
 GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
 
 EMAILS = ${emailsPy(v.emails)}
-ROLE_NAME = "Администратор"
-ADMIN_GRANTS = (
-    ("admin", "global", "admin.admin"),
-    ("admin.users", "global", "admin.users.admin"),
-    ("admin.connectors", "global", "admin.connectors.admin"),
-)
+ROLE = "Администратор"
+COMMAND = "grant"
 
-async def main():
-    if not EMAILS:
-        print(f"{RED}ERROR:{RESET} заполните поле email")
-        sys.exit(2)
-    if any("@" not in email for email in EMAILS):
-        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
-        sys.exit(2)
-
-    settings = get_settings()
-    db = Database(settings)
-    ok = 0
-    failed = 0
-    async with AsyncExitStack() as stack:
-        stack.push_async_callback(db.close)
-        session = await stack.enter_async_context(db.session())
-        permission_service = PermissionService(
-            repository=PermissionRepository(session),
-            registry=load_permission_manifests(PERMISSIONS_DIR),
-            transaction_manager=DatabaseTransactionManager(session),
-        )
-        rbac_service = RbacCliService(
-            read_repository=RbacReadRepository(session),
-            write_repository=RbacWriteRepository(session),
-        )
-        async with httpx.AsyncClient() as http:
-            auth_client = AuthClient(
-                config=KeycloakProviderConfig(
-                    issuer_url=settings.provider_issuer_url,
-                    realm=settings.provider_realm,
-                    client_id=settings.provider_client_id,
-                    client_secret=settings.provider_client_secret,
-                ),
-                http_client=http,
-            )
-            for email in EMAILS:
-                user = await auth_client.find_user_by_email(email=email)
-                if user is None:
-                    print(f"{RED}[FAIL]{RESET} {email}: user not found in provider")
-                    failed += 1
-                    continue
-                granted_roles = []
-                for namespace, resource_id, role_id in ADMIN_GRANTS:
-                    grant = await permission_service.grant_access(
-                        user_id=user.id,
-                        namespace=namespace,
-                        resource_id=resource_id,
-                        role_id=role_id,
-                    )
-                    granted_roles.append(f"{grant.namespace}/{grant.resource_id}/{grant.role_id}")
-                try:
-                    is_new = await rbac_service.grant_role(
-                        user_id=user.id, role_name=ROLE_NAME, operator="admin-helper"
-                    )
-                    await session.commit()
-                    rbac_status = "назначена" if is_new else "уже была"
-                    marker = f"{GREEN}[OK]{RESET}"
-                    ok += 1
-                except RoleNotFoundError:
-                    await session.rollback()
-                    rbac_status = f"{RED}роль не найдена — прогоните карточку 18{RESET}"
-                    marker = f"{YELLOW}[PARTIAL]{RESET}"
-                    failed += 1
-                print(f"{marker} {email}: user_id={user.id}")
-                print(f"  RBAC-роль {ROLE_NAME!r}: {rbac_status}")
-                print(f"  legacy grants: {', '.join(granted_roles)}")
-
-    print("")
-    print(f"итого: ok={ok} failed={failed}")
-    if failed:
-        sys.exit(1)
-
-asyncio.run(main())
-PY`,
-  },
-  {
-    id: "grant-connectors-admin",
-    title: "4. Выдать admin.connectors.admin (legacy)",
-    pods: [POD_HEIMDALL],
-    hint: "Только legacy access_grants. Раздел коннекторов в админке смотрит на RBAC-право connectors.manage — открыть его можно карточкой 3 или 17.",
-    fields: [
-      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
-    ],
-    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
-import asyncio, sys, httpx
-from sqlalchemy.dialects.postgresql import insert
-try:
-    from auth_sdk import AuthClient, KeycloakProviderConfig
-except ModuleNotFoundError:
-    from heimdall_auth import AuthClient, KeycloakProviderConfig
-try:
-    from auth_service.bootstrap.config import get_settings
-except ModuleNotFoundError:
-    from auth_service.config import get_settings
-try:
-    from auth_service.infrastructure.db.client import Database
-except ModuleNotFoundError:
-    from auth_service.db.client import Database
-try:
-    from auth_service.infrastructure.db.tables import AccessGrantModel
-except ModuleNotFoundError:
-    try:
-        from auth_service.db.tables import AccessGrantModel
-    except ModuleNotFoundError:
-        from auth_service.db.migration_models import AccessGrantModel
-from auth_service.features.permissions.manifest_loader import load_permission_manifests
-from auth_service.main import PERMISSIONS_DIR
-
-_ESC = chr(27)
-GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
-
-EMAILS = ${emailsPy(v.emails)}
-NAMESPACE = "admin.connectors"
-RESOURCE_ID = "global"
-ROLE_ID = "admin.connectors.admin"
-REQUIRED_PERMISSION = "manage"
-
-def resolve_role_id(registry):
-    namespace = registry.find_namespace(NAMESPACE)
-    if namespace is None:
-        available = ", ".join(sorted(registry.namespaces)) or "<empty>"
-        print(f"{RED}ERROR:{RESET} namespace {NAMESPACE!r} is not registered in this pod image")
-        print(f"available namespaces: {available}")
-        sys.exit(2)
-    if namespace.has_role(ROLE_ID):
-        if REQUIRED_PERMISSION not in namespace.permissions_by_role(ROLE_ID):
-            print(f"{RED}ERROR:{RESET} role {ROLE_ID!r} exists, but does not grant {REQUIRED_PERMISSION!r}")
-            sys.exit(2)
-        return ROLE_ID
-    fallback_roles = [
-        role.id
-        for role in namespace.roles
-        if REQUIRED_PERMISSION in namespace.permissions_by_role(role.id)
-    ]
-    if len(fallback_roles) == 1:
-        fallback_role_id = fallback_roles[0]
-        print(f"{YELLOW}[WARN]{RESET} role {ROLE_ID!r} is absent in this pod image; using {fallback_role_id!r}, the only role that grants {REQUIRED_PERMISSION!r}")
-        return fallback_role_id
-    print(f"{RED}ERROR:{RESET} role {ROLE_ID!r} is not registered in namespace {NAMESPACE!r}")
-    print("roles granting manage:", fallback_roles or "<none>")
-    print("Fix the pod image manifest or choose the correct role explicitly.")
+if not EMAILS:
+    print(f"{RED}ERROR:{RESET} укажите хотя бы один email")
     sys.exit(2)
 
-async def main():
-    if not EMAILS:
-        print(f"{RED}ERROR:{RESET} заполните поле email")
-        sys.exit(2)
-    if any("@" not in email for email in EMAILS):
-        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
-        sys.exit(2)
+try:
+    import anyio
+    from auth_service.cli.rbac.runner import main
+except ImportError as error:
+    print(f"{RED}ERROR:{RESET} CLI ролевой модели недоступен в этом образе: {error}")
+    sys.exit(2)
 
-    settings = get_settings()
-    db = Database(settings)
-    role_id = resolve_role_id(load_permission_manifests(PERMISSIONS_DIR))
-    failed = 0
+print(f"{YELLOW}[INFO]{RESET} роль: {ROLE}, пользователей: {len(EMAILS)}")
+print("")
+
+ok = 0
+failed = 0
+for email in EMAILS:
     try:
-        async with httpx.AsyncClient() as http:
-            auth_client = AuthClient(
-                config=KeycloakProviderConfig(
-                    issuer_url=settings.provider_issuer_url,
-                    realm=settings.provider_realm,
-                    client_id=settings.provider_client_id,
-                    client_secret=settings.provider_client_secret,
-                ),
-                http_client=http,
-            )
-            for email in EMAILS:
-                user = await auth_client.find_user_by_email(email=email)
-                if user is None:
-                    print(f"{RED}[FAIL]{RESET} {email}: user not found in provider")
-                    failed += 1
-                    continue
-                async with db.session() as session:
-                    async with session.begin():
-                        statement = (
-                            insert(AccessGrantModel)
-                            .values(
-                                user_id=user.id,
-                                namespace=NAMESPACE,
-                                resource_id=RESOURCE_ID,
-                                role_id=role_id,
-                            )
-                            .on_conflict_do_update(
-                                constraint="uq_access_grants_user_namespace_resource",
-                                set_={"role_id": role_id},
-                            )
-                            .returning(AccessGrantModel)
-                        )
-                        result = await session.execute(statement)
-                        grant = result.scalar_one()
-                print(f"{GREEN}[OK]{RESET} {email}: user_id={user.id} granted {grant.namespace}/{grant.resource_id}/{grant.role_id}")
-    finally:
-        await db.close()
+        code = anyio.run(main, [COMMAND, "--email", email, "--role", ROLE])
+    except SystemExit as error:
+        code = int(error.code or 1)
+    except Exception as error:
+        print(f"{RED}[FAIL]{RESET} {email}: {type(error).__name__}: {error}")
+        failed += 1
+        continue
+    if code == 0:
+        print(f"{GREEN}[OK]{RESET} {email}")
+        ok += 1
+    else:
+        print(f"{RED}[FAIL]{RESET} {email}: код {code}")
+        failed += 1
 
-    print("")
-    print(f"итого: ok={len(EMAILS) - failed} failed={failed}")
-    if failed:
-        sys.exit(1)
-
-asyncio.run(main())
+print("")
+print(f"итого: ok={ok} failed={failed}")
+sys.exit(1 if failed else 0)
 PY`,
   },
   {
-    id: "list-connectors-admins",
-    title: "5. Кто имеет admin.connectors.admin",
+    id: "grant-extensions-admin",
+    title: "4. Выдать роль администратора расширений",
     pods: [POD_HEIMDALL],
-    hint: "Без входных данных — сканирует все access_grants с этой ролью.",
-    fields: [],
-    render: () => `/app/services/auth/.venv/bin/python <<'PY'
-import asyncio, httpx
-from sqlalchemy import select
-try:
-    from auth_sdk import AuthClient, KeycloakProviderConfig
-except ModuleNotFoundError:
-    from heimdall_auth import AuthClient, KeycloakProviderConfig
-try:
-    from auth_service.bootstrap.config import get_settings
-except ModuleNotFoundError:
-    from auth_service.config import get_settings
-try:
-    from auth_service.infrastructure.db.client import Database
-except ModuleNotFoundError:
-    from auth_service.db.client import Database
-try:
-    from auth_service.infrastructure.db.tables import AccessGrantModel
-except ModuleNotFoundError:
-    try:
-        from auth_service.db.tables import AccessGrantModel
-    except ModuleNotFoundError:
-        from auth_service.db.migration_models import AccessGrantModel
-
-_ESC = chr(27)
-GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
-
-NAMESPACE = "admin.connectors"
-RESOURCE_ID = "global"
-ROLE_ID = "admin.connectors.admin"
-
-async def main():
-    settings = get_settings()
-    db = Database(settings)
-    try:
-        async with db.session() as session:
-            result = await session.execute(
-                select(AccessGrantModel)
-                .where(
-                    AccessGrantModel.namespace == NAMESPACE,
-                    AccessGrantModel.resource_id == RESOURCE_ID,
-                    AccessGrantModel.role_id == ROLE_ID,
-                )
-                .order_by(AccessGrantModel.user_id)
-            )
-            grants = list(result.scalars())
-
-        if not grants:
-            print(f"{YELLOW}[INFO]{RESET} нет ни одного access_grant для {NAMESPACE}/{RESOURCE_ID}/{ROLE_ID}")
-            return
-
-        print(f"найдено грантов: {len(grants)} ({NAMESPACE}/{RESOURCE_ID}/{ROLE_ID})")
-        print("")
-        found = 0
-        async with httpx.AsyncClient() as http:
-            auth_client = AuthClient(
-                config=KeycloakProviderConfig(
-                    issuer_url=settings.provider_issuer_url,
-                    realm=settings.provider_realm,
-                    client_id=settings.provider_client_id,
-                    client_secret=settings.provider_client_secret,
-                ),
-                http_client=http,
-            )
-            for grant in grants:
-                user = await auth_client.get_provider_user_by_id(user_id=grant.user_id)
-                if user is None:
-                    print(f"{YELLOW}[WARN]{RESET} user_id={grant.user_id}: не найден в provider (стал zombie-грантом)")
-                else:
-                    print(f"{GREEN}[OK]{RESET} email={user.email} user_id={grant.user_id} enabled={user.enabled}")
-                    found += 1
-
-        print("")
-        print(f"итого: {found} активных из {len(grants)} грантов")
-    finally:
-        await db.close()
-
-asyncio.run(main())
-PY`,
-  },
-  {
-    id: "revoke-connectors-admin",
-    title: "6. Отозвать admin.connectors.admin (legacy)",
-    pods: [POD_HEIMDALL],
-    danger: true,
-    hint: "Снимает только legacy-грант. RBAC-роль «Администратор» тоже даёт connectors.manage — полный отзыв делает карточка 21.",
+    hint: "Назначает системную роль «Администратор расширений»: управление подключениями к коннекторам организации. Прямая роль одна, прежняя снимается. Раньше на её месте были legacy access_grants — в новой модели их нет.",
     fields: [
       { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
     ],
     render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
-import asyncio, sys, httpx
-from sqlalchemy import delete
-try:
-    from auth_sdk import AuthClient, KeycloakProviderConfig
-except ModuleNotFoundError:
-    from heimdall_auth import AuthClient, KeycloakProviderConfig
-try:
-    from auth_service.bootstrap.config import get_settings
-except ModuleNotFoundError:
-    from auth_service.config import get_settings
-try:
-    from auth_service.infrastructure.db.client import Database
-except ModuleNotFoundError:
-    from auth_service.db.client import Database
-try:
-    from auth_service.infrastructure.db.tables import AccessGrantModel
-except ModuleNotFoundError:
-    try:
-        from auth_service.db.tables import AccessGrantModel
-    except ModuleNotFoundError:
-        from auth_service.db.migration_models import AccessGrantModel
+import sys
 
 _ESC = chr(27)
 GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
 
 EMAILS = ${emailsPy(v.emails)}
-NAMESPACE = "admin.connectors"
-RESOURCE_ID = "global"
-ROLE_ID = "admin.connectors.admin"
+ROLE = "Администратор расширений"
+COMMAND = "grant"
+
+if not EMAILS:
+    print(f"{RED}ERROR:{RESET} укажите хотя бы один email")
+    sys.exit(2)
+
+try:
+    import anyio
+    from auth_service.cli.rbac.runner import main
+except ImportError as error:
+    print(f"{RED}ERROR:{RESET} CLI ролевой модели недоступен в этом образе: {error}")
+    sys.exit(2)
+
+print(f"{YELLOW}[INFO]{RESET} роль: {ROLE}, пользователей: {len(EMAILS)}")
+print("")
+
+ok = 0
+failed = 0
+for email in EMAILS:
+    try:
+        code = anyio.run(main, [COMMAND, "--email", email, "--role", ROLE])
+    except SystemExit as error:
+        code = int(error.code or 1)
+    except Exception as error:
+        print(f"{RED}[FAIL]{RESET} {email}: {type(error).__name__}: {error}")
+        failed += 1
+        continue
+    if code == 0:
+        print(f"{GREEN}[OK]{RESET} {email}")
+        ok += 1
+    else:
+        print(f"{RED}[FAIL]{RESET} {email}: код {code}")
+        failed += 1
+
+print("")
+print(f"итого: ok={ok} failed={failed}")
+sys.exit(1 if failed else 0)
+PY`,
+  },
+  {
+    id: "list-extensions-admins",
+    title: "5. Кто администратор расширений",
+    pods: [POD_HEIMDALL],
+    hint: "Только читает: показывает держателей роли «Администратор расширений» по графу прав. Ничего не меняет. Раньше карточка сканировала legacy access_grants — в новой модели выдачи живут в графе.",
+    fields: [],
+    render: () => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+ROLE_KEY = "tenant.admin.extensions"
+
 
 async def main():
-    if not EMAILS:
-        print(f"{RED}ERROR:{RESET} заполните поле email")
-        sys.exit(2)
-    if any("@" not in email for email in EMAILS):
-        print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+    try:
+        from auth_service.bootstrap.config import get_settings
+        from auth_service.cli.authorization_store import open_authorization_store
+        from auth_service.features.rbac.global_grants import GlobalRoleGrants
+        from auth_service.features.rbac.read_repository import RbacReadRepository
+        from auth_service.infrastructure.db.client import Database
+    except ImportError as error:
+        print(f"{RED}ERROR:{RESET} новая ролевая модель недоступна в этом образе: {error}")
         sys.exit(2)
 
     settings = get_settings()
-    db = Database(settings)
-    revoked = 0
-    already_absent = 0
-    failed = 0
+    db = Database(settings.database_url)
     try:
-        async with httpx.AsyncClient() as http:
-            auth_client = AuthClient(
-                config=KeycloakProviderConfig(
-                    issuer_url=settings.provider_issuer_url,
-                    realm=settings.provider_realm,
-                    client_id=settings.provider_client_id,
-                    client_secret=settings.provider_client_secret,
-                ),
-                http_client=http,
-            )
-            for email in EMAILS:
-                user = await auth_client.find_user_by_email(email=email)
-                if user is None:
-                    print(f"{RED}[FAIL]{RESET} {email}: user not found in provider")
-                    failed += 1
-                    continue
-                async with db.session() as session:
-                    async with session.begin():
-                        statement = delete(AccessGrantModel).where(
-                            AccessGrantModel.user_id == user.id,
-                            AccessGrantModel.namespace == NAMESPACE,
-                            AccessGrantModel.resource_id == RESOURCE_ID,
-                            AccessGrantModel.role_id == ROLE_ID,
-                        )
-                        result = await session.execute(statement)
-                if result.rowcount:
-                    print(f"{GREEN}[OK]{RESET} {email}: user_id={user.id} доступ отозван")
-                    revoked += 1
-                else:
-                    print(f"{YELLOW}[SKIP]{RESET} {email}: user_id={user.id} гранта и так не было")
-                    already_absent += 1
+        async with db.session() as session:
+            roles = await RbacReadRepository(session).list_roles()
     finally:
         await db.close()
 
-    print("")
-    print(f"итого: отозвано={revoked} уже_не_было={already_absent} failed={failed}")
-    if failed:
+    target = next((role for role in roles if role.key == ROLE_KEY), None)
+    if target is None:
+        print(f"{RED}[FAIL]{RESET} роли с ключом {ROLE_KEY} нет: образ без новой ролевой модели")
         sys.exit(1)
 
+    async with open_authorization_store(settings) as store:
+        grants = GlobalRoleGrants(store=store, tenant_id=settings.tenant_id)
+        holders = await grants.holders_of(target.role_id)
+
+    print(f"{YELLOW}[INFO]{RESET} роль: {target.name}")
+    if not holders:
+        print(f"{YELLOW}[INFO]{RESET} держателей нет")
+        return
+    for holder in holders:
+        print(f"{GREEN}[OK]{RESET} {holder.user_id}")
+    print("")
+    print(f"итого: {len(holders)}")
+
 asyncio.run(main())
+PY`,
+  },
+  {
+    id: "revoke-extensions-admin",
+    title: "6. Снять роль администратора расширений",
+    pods: [POD_HEIMDALL],
+    hint: "Отзывает роль «Администратор расширений». Пользователь остаётся участником тенанта: базовая роль постоянная и не снимается.",
+    fields: [
+      { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import sys
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+ROLE = "Администратор расширений"
+COMMAND = "revoke"
+
+if not EMAILS:
+    print(f"{RED}ERROR:{RESET} укажите хотя бы один email")
+    sys.exit(2)
+
+try:
+    import anyio
+    from auth_service.cli.rbac.runner import main
+except ImportError as error:
+    print(f"{RED}ERROR:{RESET} CLI ролевой модели недоступен в этом образе: {error}")
+    sys.exit(2)
+
+print(f"{YELLOW}[INFO]{RESET} роль: {ROLE}, пользователей: {len(EMAILS)}")
+print("")
+
+ok = 0
+failed = 0
+for email in EMAILS:
+    try:
+        code = anyio.run(main, [COMMAND, "--email", email, "--role", ROLE])
+    except SystemExit as error:
+        code = int(error.code or 1)
+    except Exception as error:
+        print(f"{RED}[FAIL]{RESET} {email}: {type(error).__name__}: {error}")
+        failed += 1
+        continue
+    if code == 0:
+        print(f"{GREEN}[OK]{RESET} {email}")
+        ok += 1
+    else:
+        print(f"{RED}[FAIL]{RESET} {email}: код {code}")
+        failed += 1
+
+print("")
+print(f"итого: ok={ok} failed={failed}")
+sys.exit(1 if failed else 0)
 PY`,
   },
   {
@@ -967,154 +844,113 @@ PY`,
   },
   {
     id: "check-grants",
-    title: "8. Проверить доступы",
+    title: "8. Проверить роли и права пользователя",
     pods: [POD_HEIMDALL],
-    hint: "RBAC-роли и права (их читает админка) плюс legacy access_grants.",
+    hint: "Только читает: какие глобальные роли есть у пользователя и какие права они дают. Источник — граф прав, как и у самого сервиса. Ничего не меняет. Прежняя версия читала таблицы user_global_roles и access_grants, которых в новой модели больше нет.",
     fields: [
       { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
     ],
     render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
-import asyncio, sys, httpx
-from sqlalchemy import select, text
-try:
-    from auth_sdk import AuthClient, KeycloakProviderConfig
-except ModuleNotFoundError:
-    from heimdall_auth import AuthClient, KeycloakProviderConfig
-try:
-    from auth_service.bootstrap.config import get_settings
-except ModuleNotFoundError:
-    from auth_service.config import get_settings
-try:
-    from auth_service.infrastructure.db.client import Database
-except ModuleNotFoundError:
-    from auth_service.db.client import Database
-try:
-    from auth_service.infrastructure.db.tables import AccessGrantModel
-except ModuleNotFoundError:
-    try:
-        from auth_service.db.tables import AccessGrantModel
-    except ModuleNotFoundError:
-        from auth_service.db.migration_models import AccessGrantModel
+import asyncio, sys
 
 _ESC = chr(27)
 GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
 
 EMAILS = ${emailsPy(v.emails)}
 
+if not EMAILS:
+    print(f"{RED}ERROR:{RESET} укажите хотя бы один email")
+    sys.exit(2)
+
+
 async def main():
-    if not EMAILS:
-        print(f"{RED}ERROR:{RESET} заполните поле email")
+    try:
+        from auth_service.bootstrap.config import get_settings
+        from auth_service.cli.authorization_store import open_authorization_store
+        from auth_service.features.access.relations import TENANT_TYPE
+        from auth_service.features.rbac.global_grants import GlobalRoleGrants
+        from auth_service.features.rbac.read_repository import RbacReadRepository
+        from auth_service.infrastructure.db.client import Database
+    except ImportError as error:
+        print(f"{RED}ERROR:{RESET} новая ролевая модель недоступна в этом образе: {error}")
         sys.exit(2)
 
-    settings = get_settings()
-    db = Database(settings)
-    not_found = 0
-    checked = 0
+    import httpx
+
     try:
-        async with httpx.AsyncClient() as http:
-            auth_client = AuthClient(
-                config=KeycloakProviderConfig(
-                    issuer_url=settings.provider_issuer_url,
-                    realm=settings.provider_realm,
-                    client_id=settings.provider_client_id,
-                    client_secret=settings.provider_client_secret,
-                ),
-                http_client=http,
-            )
-            for email in EMAILS:
-                print(f"== {email} ==")
-                user = await auth_client.find_user_by_email(email=email)
-                if user is None:
-                    print(f"{YELLOW}[SKIP]{RESET} не найден в provider — карточка 1")
-                    not_found += 1
+        from auth_sdk import AuthClient, KeycloakProviderConfig
+    except ModuleNotFoundError:
+        from heimdall_auth import AuthClient, KeycloakProviderConfig
+
+    settings = get_settings()
+    db = Database(settings.database_url)
+    missing = 0
+    try:
+        async with db.session() as session:
+            roles = {role.role_id: role for role in await RbacReadRepository(session).list_roles()}
+            async with open_authorization_store(settings) as store:
+                grants = GlobalRoleGrants(store=store, tenant_id=settings.tenant_id)
+                compositions = await store.permissions_of_roles(
+                    [str(role_id) for role_id in roles], TENANT_TYPE
+                )
+                async with httpx.AsyncClient() as http:
+                  auth_client = AuthClient(
+                      config=KeycloakProviderConfig(
+                          issuer_url=settings.provider_issuer_url,
+                          realm=settings.provider_realm,
+                          client_id=settings.provider_client_id,
+                          client_secret=settings.provider_client_secret,
+                      ),
+                      http_client=http,
+                  )
+                  for email in EMAILS:
+                    print(f"== {email} ==")
+                    user = await auth_client.find_user_by_email(email=email)
+                    if user is None:
+                        print(f"{YELLOW}[SKIP]{RESET} пользователь не найден в провайдере")
+                        missing += 1
+                        print("")
+                        continue
+                    user_id = user.id
+                    print(f"user_id: {user_id}")
+                    held = [grant.role_id for grant in await grants.grants_of(user_id)]
+                    if not held:
+                        print(f"{RED}[FAIL]{RESET} ролей нет вовсе: даже участника")
+                    names = sorted(roles[role_id].name for role_id in held if role_id in roles)
+                    print("роли: " + (", ".join(names) if names else "нет"))
+                    permissions = sorted(
+                        {
+                            permission
+                            for role_id in held
+                            for permission in compositions.get(str(role_id), frozenset())
+                        }
+                    )
+                    print("права: " + (", ".join(permissions) if permissions else "нет"))
                     print("")
-                    continue
-                checked += 1
-                print(f"user_id: {user.id}")
-                async with db.session() as session:
-                    roles_result = await session.execute(
-                        text(
-                            "SELECT gr.name FROM user_global_roles ugr "
-                            "JOIN global_roles gr ON gr.role_id = ugr.role_id "
-                            "WHERE ugr.user_id = :uid ORDER BY gr.name"
-                        ),
-                        {"uid": user.id},
-                    )
-                    role_names = [row[0] for row in roles_result.all()]
-                    permissions_result = await session.execute(
-                        text(
-                            "SELECT DISTINCT grp.permission_id FROM user_global_roles ugr "
-                            "JOIN global_role_permissions grp ON grp.role_id = ugr.role_id "
-                            "WHERE ugr.user_id = :uid ORDER BY grp.permission_id"
-                        ),
-                        {"uid": user.id},
-                    )
-                    permissions = {row[0] for row in permissions_result.all()}
-                    grants_result = await session.execute(
-                        select(AccessGrantModel)
-                        .where(AccessGrantModel.user_id == user.id)
-                        .order_by(AccessGrantModel.namespace, AccessGrantModel.resource_id, AccessGrantModel.role_id)
-                    )
-                    grants = list(grants_result.scalars())
-
-                print("RBAC-роли: " + (", ".join(role_names) if role_names else "нет"))
-                def flag(label, permission_id):
-                    mark = f"{GREEN}да{RESET}" if permission_id in permissions else f"{RED}нет{RESET}"
-                    print(f"  {label} ({permission_id}): {mark}")
-                flag("управление ролями", "roles.manage")
-                flag("управление пользователями", "users.manage")
-                flag("управление коннекторами", "connectors.manage")
-                flag("управление пространствами", "workspace.manage")
-
-                print("legacy access_grants: " + (str(len(grants)) if grants else "нет"))
-                for grant in grants:
-                    print(f"  - {grant.namespace}/{grant.resource_id}/{grant.role_id}")
-                print("")
     finally:
         await db.close()
 
-    print(f"итого: проверено={checked} не_найдено={not_found}")
+    if missing:
+        print(f"{YELLOW}[INFO]{RESET} не найдено пользователей: {missing}")
+        sys.exit(1)
 
 asyncio.run(main())
 PY`,
   },
   {
     id: "create-tech-admin",
-    title: "9. Создать tech admin",
+    title: "9. Создать техническую учётку администратора",
     pods: [POD_HEIMDALL],
-    hint: "Создаёт или находит пользователя, ставит пароль, выдаёт RBAC-роль «Администратор» и legacy access_grants.",
+    hint: "Заводит пользователя в провайдере, ставит пароль и выдаёт системную роль «Администратор» через CLI ролевой модели. Если пользователь уже есть, создаётся только пароль и роль. Пароль печатается один раз: сохраните его сразу.",
+    danger: true,
     fields: [
       { id: "email", type: "email", label: "Email", placeholder: "tech-admin@example.com" },
       { id: "password", type: "password", label: "Пароль", placeholder: "оставьте пустым — сгенерируется случайный" },
       { id: "fio", type: "text", label: "ФИО (необязательно)", placeholder: "Иванов Иван Иванович" },
     ],
     render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
-import asyncio, secrets, string, sys, httpx
-from contextlib import AsyncExitStack
-try:
-    from auth_sdk import AuthClient, KeycloakProviderConfig
-except ModuleNotFoundError:
-    from heimdall_auth import AuthClient, KeycloakProviderConfig
-from auth_service.cli.rbac.errors import RoleNotFoundError
-from auth_service.cli.rbac.service import RbacCliService
-try:
-    from auth_service.bootstrap.config import get_settings
-except ModuleNotFoundError:
-    from auth_service.config import get_settings
-try:
-    from auth_service.infrastructure.db.client import Database
-except ModuleNotFoundError:
-    from auth_service.db.client import Database
-try:
-    from auth_service.infrastructure.db.transactions import DatabaseTransactionManager
-except ModuleNotFoundError:
-    from auth_service.db.transactions import DatabaseTransactionManager
-from auth_service.features.permissions.manifest_loader import load_permission_manifests
-from auth_service.features.permissions.repository import PermissionRepository
-from auth_service.features.permissions.service import PermissionService
-from auth_service.features.rbac.read_repository import RbacReadRepository
-from auth_service.features.rbac.write_repository import RbacWriteRepository
-from auth_service.main import PERMISSIONS_DIR
+import asyncio, secrets, string, sys
+import httpx
 
 _ESC = chr(27)
 GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
@@ -1122,83 +958,82 @@ GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC
 EMAIL = ${emailPy(v.email)}
 PASSWORD = ${passwordPy(v.password)}
 FIO = ${fioPy(v.fio)}
-ROLE_NAME = "Администратор"
-ADMIN_GRANTS = (
-    ("admin", "global", "admin.admin"),
-    ("admin.users", "global", "admin.users.admin"),
-    ("admin.connectors", "global", "admin.connectors.admin"),
-)
+ROLE = "Администратор"
+
+if not EMAIL or "@" not in EMAIL:
+    print(f"{RED}ERROR:{RESET} заполните корректный email")
+    sys.exit(2)
+
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+from auth_service.bootstrap.config import get_settings
+
 
 def make_password(length=24):
     alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
     while True:
         password = "".join(secrets.choice(alphabet) for _ in range(length))
-        if any(c.islower() for c in password) and any(c.isupper() for c in password) and any(c.isdigit() for c in password) and any(c in "!@#$%^&*()-_=+" for c in password):
+        if (any(c.islower() for c in password) and any(c.isupper() for c in password)
+                and any(c.isdigit() for c in password)
+                and any(c in "!@#$%^&*()-_=+" for c in password)):
             return password
 
-async def main():
-    if not EMAIL or "@" not in EMAIL:
-        print(f"{RED}ERROR:{RESET} заполните корректный email")
-        sys.exit(2)
 
-    password = PASSWORD or make_password()
+async def ensure_user(password):
     settings = get_settings()
-    db = Database(settings)
-    async with AsyncExitStack() as stack:
-        stack.push_async_callback(db.close)
-        session = await stack.enter_async_context(db.session())
-        permission_service = PermissionService(
-            repository=PermissionRepository(session),
-            registry=load_permission_manifests(PERMISSIONS_DIR),
-            transaction_manager=DatabaseTransactionManager(session),
+    if FIO:
+        parts = FIO.split()
+        last_name = parts[0]
+        first_name = " ".join(parts[1:]) if len(parts) > 1 else "Technical"
+    else:
+        last_name, first_name = "Admin", "Technical"
+    async with httpx.AsyncClient() as http:
+        client = AuthClient(
+            config=KeycloakProviderConfig(
+                issuer_url=settings.provider_issuer_url,
+                realm=settings.provider_realm,
+                client_id=settings.provider_client_id,
+                client_secret=settings.provider_client_secret,
+            ),
+            http_client=http,
         )
-        rbac_service = RbacCliService(
-            read_repository=RbacReadRepository(session),
-            write_repository=RbacWriteRepository(session),
-        )
-        async with httpx.AsyncClient() as http:
-            auth_client = AuthClient(
-                config=KeycloakProviderConfig(
-                    issuer_url=settings.provider_issuer_url,
-                    realm=settings.provider_realm,
-                    client_id=settings.provider_client_id,
-                    client_secret=settings.provider_client_secret,
-                ),
-                http_client=http,
+        user = await client.find_user_by_email(email=EMAIL)
+        created = user is None
+        if created:
+            user = await client.create_provider_user(
+                email=EMAIL, first_name=first_name, last_name=last_name
             )
-            if FIO:
-                parts = FIO.split()
-                last_name = parts[0]
-                first_name = " ".join(parts[1:]) if len(parts) > 1 else "Technical"
-            else:
-                last_name = "Admin"
-                first_name = "Technical"
-            user = await auth_client.find_user_by_email(email=EMAIL)
-            if user is None:
-                user = await auth_client.create_provider_user(email=EMAIL, first_name=first_name, last_name=last_name)
-                created = True
-            else:
-                created = False
-            await auth_client.reset_user_password(user_id=user.id, new_password=password)
-            for namespace, resource_id, role_id in ADMIN_GRANTS:
-                await permission_service.grant_access(user_id=user.id, namespace=namespace, resource_id=resource_id, role_id=role_id)
-            try:
-                await rbac_service.grant_role(user_id=user.id, role_name=ROLE_NAME, operator="admin-helper")
-                await session.commit()
-                rbac_status = f"{GREEN}выдана{RESET}"
-            except RoleNotFoundError:
-                await session.rollback()
-                rbac_status = f"{RED}роль не найдена — прогоните карточку 18{RESET}"
+        await client.reset_user_password(user_id=user.id, new_password=password)
+        return user.id, created
 
-            action = "создан новый пользователь" if created else "использован существующий пользователь"
-            print(f"{GREEN}[OK]{RESET} {action}")
-            print("")
-            print(f"  email:     {EMAIL}")
-            print(f"  password:  {password}")
-            print(f"  user_id:   {user.id}")
-            print(f"  RBAC-роль {ROLE_NAME!r}: {rbac_status}")
 
-asyncio.run(main())
+password = PASSWORD or make_password()
+user_id, created = asyncio.run(ensure_user(password))
+print(f"{GREEN}[OK]{RESET} " + ("создан новый пользователь" if created else "пользователь уже был"))
+
+try:
+    import anyio
+    from auth_service.cli.rbac.runner import main
+except ImportError as error:
+    print(f"{RED}ERROR:{RESET} CLI ролевой модели недоступен в этом образе: {error}")
+    sys.exit(2)
+
+try:
+    code = anyio.run(main, ["grant", "--email", EMAIL, "--role", ROLE])
+except SystemExit as error:
+    code = int(error.code or 1)
+except Exception as error:
+    print(f"{RED}[FAIL]{RESET} роль не выдана: {type(error).__name__}: {error}")
+    code = 1
+
+print("")
+print(f"  email:    {EMAIL}")
+print(f"  password: {password}")
+print(f"  user_id:  {user_id}")
+print(f"  роль {ROLE}: " + (f"{GREEN}выдана{RESET}" if code == 0 else f"{RED}не выдана{RESET}"))
+sys.exit(code)
 PY`,
   },
   {
@@ -1387,7 +1222,7 @@ PY`,
     title: "13. Удалить пользователей",
     pods: [POD_HEIMDALL],
     danger: true,
-    hint: "Keycloak + heimdall DB. Необратимо.",
+    hint: "Keycloak + heimdall DB, только на этом стенде. Необратимо. Сначала чистится БД, Keycloak последним: при сбое учётка не пропадёт наполовину. Повторный запуск дочищает БД, даже если в Keycloak пользователя уже нет. Таблицы, которых нет в образе, пропускаются. Выдачи в графе прав (OpenFGA) не снимаются.",
     fields: [
       { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
     ],
@@ -1405,15 +1240,56 @@ GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC
 
 EMAILS = ${emailsPy(v.emails)}
 
+BY_EMAIL = [
+    ("invite_tokens", "email_normalized=:e"),
+    ("password_reset_tokens", "email_normalized=:e"),
+    ("bootstrap_admin_requests", "email_normalized=:e"),
+    ("user_legal_consents", "email_normalized=:e"),
+]
+BY_USER_ID = [
+    ("browser_sessions", "provider_subject=:u"),
+    ("offline_sessions", "provider_subject=:u"),
+    ("auth_flows", "user_id=:u OR provider_subject=:u"),
+    ("user_totp_settings", "user_id=:u"),
+    ("user_legal_consents", "provider_user_id=:u"),
+    ("user_profile_preferences", "provider_user_id=:u"),
+    ("access_grants", "user_id=:u"),
+    ("user_global_roles", "user_id=:u"),
+    ("user_entity_roles", "user_id=:u"),
+    ("entity_role_assignments", "user_id=:u"),
+    ("user_role_bootstrap", "user_id=:u"),
+    ("rbac_first_admin_bootstrap", "user_id=:u"),
+    ("provider_users", "provider_user_id=:u"),
+]
+
+def database_url():
+    db_url = os.environ["AUTH_DATABASE_URL"]
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return db_url
+
+async def existing_tables(conn):
+    names = {table for table, _ in BY_EMAIL + BY_USER_ID}
+    found = set()
+    for name in names:
+        if (await conn.execute(text("SELECT to_regclass(:t)"), {"t": name})).scalar():
+            found.add(name)
+    return found
+
+async def mirrored_user_id(conn, tables, email):
+    if "provider_users" not in tables:
+        return None
+    row = (await conn.execute(
+        text("SELECT provider_user_id FROM provider_users WHERE email_normalized=:e"), {"e": email}
+    )).first()
+    return str(row[0]) if row else None
+
 async def main():
     if not EMAILS:
         print(f"{RED}ERROR:{RESET} заполните поле email")
         sys.exit(2)
 
-    print("Keycloak:")
-    deleted_provider_ids = {}
-    keycloak_deleted = 0
-    keycloak_missing = 0
+    engine = create_async_engine(database_url())
     async with httpx.AsyncClient() as http:
         client = AuthClient(
             config=KeycloakProviderConfig(
@@ -1424,56 +1300,51 @@ async def main():
             ),
             http_client=http,
         )
-        for email in EMAILS:
-            user = await client.find_user_by_email(email=email)
-            if user is None:
-                print(f"  {YELLOW}[SKIP]{RESET} {email}: в Keycloak не найден")
-                keycloak_missing += 1
-            else:
-                deleted_provider_ids[email] = user.id
-                await client.delete_provider_user(user_id=user.id)
-                print(f"  {GREEN}[OK]{RESET} {email}: удалён (id={user.id})")
-                keycloak_deleted += 1
 
-    print("")
-    print("heimdall DB (токены, согласия, сессии, 2FA, access_grants, RBAC-роли и маркеры bootstrap):")
-    db_url = os.environ["AUTH_DATABASE_URL"]
-    if db_url.startswith("postgresql://"):
-        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    engine = create_async_engine(db_url)
-    async with engine.begin() as conn:
+        async with engine.connect() as conn:
+            tables = await existing_tables(conn)
+        skipped = sorted({table for table, _ in BY_EMAIL + BY_USER_ID} - tables)
+        if skipped:
+            print(f"{YELLOW}нет в этом образе, пропускаю:{RESET} {', '.join(skipped)}")
+
+        keycloak_deleted = keycloak_missing = keycloak_failed = 0
         for email in EMAILS:
+            print("")
+            print(email)
+            provider_user = await client.find_user_by_email(email=email)
+            async with engine.connect() as conn:
+                user_id = provider_user.id if provider_user else await mirrored_user_id(conn, tables, email)
+            if provider_user is None:
+                source = f"id из provider_users: {user_id}" if user_id else "id неизвестен, чистятся только записи по email"
+                print(f"  {YELLOW}[SKIP]{RESET} в Keycloak не найден, {source}")
+
             rows_deleted = 0
-            for sql, params in [
-                ("DELETE FROM invite_tokens WHERE email_normalized=:e", {"e": email}),
-                ("DELETE FROM password_reset_tokens WHERE email_normalized=:e", {"e": email}),
-                ("DELETE FROM bootstrap_admin_requests WHERE email_normalized=:e", {"e": email}),
-                ("DELETE FROM user_legal_consents WHERE email_normalized=:e", {"e": email}),
-            ]:
-                res = await conn.execute(text(sql), params)
-                rows_deleted += res.rowcount
-            user_id = deleted_provider_ids.get(email)
-            if user_id:
-                for sql, params in [
-                    ("DELETE FROM browser_sessions WHERE provider_subject=:u", {"u": user_id}),
-                    ("DELETE FROM offline_sessions WHERE provider_subject=:u", {"u": user_id}),
-                    ("DELETE FROM auth_flows WHERE user_id=:u OR provider_subject=:u", {"u": user_id}),
-                    ("DELETE FROM user_totp_settings WHERE user_id=:u", {"u": user_id}),
-                    ("DELETE FROM user_legal_consents WHERE provider_user_id=:u", {"u": user_id}),
-                    ("DELETE FROM user_profile_preferences WHERE provider_user_id=:u", {"u": user_id}),
-                    ("DELETE FROM access_grants WHERE user_id=:u", {"u": user_id}),
-                    ("DELETE FROM user_global_roles WHERE user_id=:u", {"u": user_id}),
-                    ("DELETE FROM user_entity_roles WHERE user_id=:u", {"u": user_id}),
-                    ("DELETE FROM user_role_bootstrap WHERE user_id=:u", {"u": user_id}),
-                    ("DELETE FROM rbac_first_admin_bootstrap WHERE user_id=:u", {"u": user_id}),
-                ]:
-                    res = await conn.execute(text(sql), params)
-                    rows_deleted += res.rowcount
-            print(f"  {email}: удалено строк — {rows_deleted}")
-    await engine.dispose()
+            async with engine.begin() as conn:
+                plan = [(t, w, {"e": email}) for t, w in BY_EMAIL]
+                if user_id:
+                    plan += [(t, w, {"u": user_id}) for t, w in BY_USER_ID]
+                for table, where, params in plan:
+                    if table in tables:
+                        rows_deleted += (await conn.execute(text(f"DELETE FROM {table} WHERE {where}"), params)).rowcount
+            print(f"  {GREEN}[OK]{RESET} heimdall DB: удалено строк — {rows_deleted}")
 
+            if provider_user is None:
+                keycloak_missing += 1
+                continue
+            try:
+                await client.delete_provider_user(user_id=provider_user.id)
+            except Exception as error:
+                print(f"  {RED}[FAIL]{RESET} Keycloak: {error!r}; БД уже очищена, запустите карточку ещё раз")
+                keycloak_failed += 1
+                continue
+            print(f"  {GREEN}[OK]{RESET} Keycloak: удалён (id={provider_user.id})")
+            keycloak_deleted += 1
+
+    await engine.dispose()
     print("")
-    print(f"итого: keycloak_удалено={keycloak_deleted} keycloak_не_найдено={keycloak_missing}")
+    print(f"итого: keycloak_удалено={keycloak_deleted} keycloak_не_найдено={keycloak_missing} keycloak_ошибок={keycloak_failed}")
+    if keycloak_failed:
+        sys.exit(1)
 
 asyncio.run(main())
 PY`,
@@ -1772,93 +1643,57 @@ PY`,
   },
   {
     id: "grant-roles-manage",
-    title: "17. Назначить роль «Администратор» (RBAC)",
+    title: "17. Выдать управление ролями",
     pods: [POD_HEIMDALL],
-    hint: "Только RBAC, без legacy access_grants. Роль даёт roles.manage, users.manage, workspace.manage, connectors.manage разом, а вместе с ними и раздел «События»: права аудита с версии 26.08 входят в «Администратора» и отдельно не выдаются.",
+    after: "26.09.4",
+    hint: "Назначает системную роль «Администратор пользователей, групп, ролей»: управление людьми, группами и ролями организации. Прямая роль одна, прежняя снимается. Раньше карточка чинила потерянную роль с правом roles.manage — в новой модели системные роли сидируются из манифеста на каждом старте и потеряться не могут.",
     fields: [
       { id: "emails", type: "emails", label: "Email", placeholder: "user1@example.com\nuser2@example.com" },
     ],
     render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
-import asyncio, sys, httpx
-try:
-    from auth_sdk import AuthClient, KeycloakProviderConfig
-except ModuleNotFoundError:
-    from heimdall_auth import AuthClient, KeycloakProviderConfig
-from auth_service.cli.rbac.errors import RoleNotFoundError
-from auth_service.cli.rbac.service import RbacCliService
-try:
-    from auth_service.bootstrap.config import get_settings
-except ModuleNotFoundError:
-    from auth_service.config import get_settings
-try:
-    from auth_service.infrastructure.db.client import Database
-except ModuleNotFoundError:
-    from auth_service.db.client import Database
-from auth_service.features.rbac.read_repository import RbacReadRepository
-from auth_service.features.rbac.write_repository import RbacWriteRepository
+import sys
 
 _ESC = chr(27)
 GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
 
 EMAILS = ${emailsPy(v.emails)}
-ROLE_NAME = "Администратор"
+ROLE = "Администратор пользователей, групп, ролей"
 
-async def main():
-    if not EMAILS:
-        print(f"{RED}ERROR:{RESET} заполните поле email")
-        sys.exit(2)
+if not EMAILS:
+    print(f"{RED}ERROR:{RESET} укажите хотя бы один email")
+    sys.exit(2)
 
-    settings = get_settings()
-    db = Database(settings)
-    assigned = 0
-    already = 0
-    failed = 0
+try:
+    import anyio
+    from auth_service.cli.rbac.runner import main
+except ImportError as error:
+    print(f"{RED}ERROR:{RESET} CLI ролевой модели недоступен в этом образе: {error}")
+    sys.exit(2)
+
+print(f"{YELLOW}[INFO]{RESET} роль: {ROLE}")
+print("")
+
+ok = 0
+failed = 0
+for email in EMAILS:
     try:
-        async with httpx.AsyncClient() as http:
-            auth_client = AuthClient(
-                config=KeycloakProviderConfig(
-                    issuer_url=settings.provider_issuer_url,
-                    realm=settings.provider_realm,
-                    client_id=settings.provider_client_id,
-                    client_secret=settings.provider_client_secret,
-                ),
-                http_client=http,
-            )
-            async with db.session() as session:
-                service = RbacCliService(
-                    read_repository=RbacReadRepository(session),
-                    write_repository=RbacWriteRepository(session),
-                )
-                for email in EMAILS:
-                    user = await auth_client.find_user_by_email(email=email)
-                    if user is None:
-                        print(f"{RED}[FAIL]{RESET} {email}: user not found in provider")
-                        failed += 1
-                        continue
-                    try:
-                        is_new = await service.grant_role(
-                            user_id=user.id, role_name=ROLE_NAME, operator="admin-helper"
-                        )
-                    except RoleNotFoundError:
-                        print(f"{RED}[FAIL]{RESET} {email}: роль {ROLE_NAME!r} не найдена в этом стенде — сначала прогоните карточку 18")
-                        failed += 1
-                        continue
-                    if is_new:
-                        print(f"{GREEN}[OK]{RESET} {email}: роль {ROLE_NAME!r} назначена, user_id={user.id}")
-                        assigned += 1
-                    else:
-                        print(f"{YELLOW}[SKIP]{RESET} {email}: роль {ROLE_NAME!r} уже была назначена")
-                        already += 1
-                await session.commit()
-    finally:
-        await db.close()
+        code = anyio.run(main, ["grant", "--email", email, "--role", ROLE])
+    except SystemExit as error:
+        code = int(error.code or 1)
+    except Exception as error:
+        print(f"{RED}[FAIL]{RESET} {email}: {type(error).__name__}: {error}")
+        failed += 1
+        continue
+    if code == 0:
+        print(f"{GREEN}[OK]{RESET} {email}")
+        ok += 1
+    else:
+        print(f"{RED}[FAIL]{RESET} {email}: код {code}")
+        failed += 1
 
-    print("")
-    print(f"итого: назначено={assigned} уже_было={already} failed={failed}")
-    if failed:
-        sys.exit(1)
-
-asyncio.run(main())
+print("")
+print(f"итого: ok={ok} failed={failed}")
+sys.exit(1 if failed else 0)
 PY`,
   },
   {
@@ -2124,13 +1959,11 @@ PY`,
     ],
     render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
 import asyncio, sys, httpx
-from sqlalchemy import delete
+from sqlalchemy import text
 try:
     from auth_sdk import AuthClient, KeycloakProviderConfig
 except ModuleNotFoundError:
     from heimdall_auth import AuthClient, KeycloakProviderConfig
-from auth_service.cli.rbac.errors import RoleNotFoundError
-from auth_service.cli.rbac.service import RbacCliService
 try:
     from auth_service.bootstrap.config import get_settings
 except ModuleNotFoundError:
@@ -2139,20 +1972,27 @@ try:
     from auth_service.infrastructure.db.client import Database
 except ModuleNotFoundError:
     from auth_service.db.client import Database
-try:
-    from auth_service.infrastructure.db.tables import AccessGrantModel
-except ModuleNotFoundError:
-    try:
-        from auth_service.db.tables import AccessGrantModel
-    except ModuleNotFoundError:
-        from auth_service.db.migration_models import AccessGrantModel
-from auth_service.features.rbac.read_repository import RbacReadRepository
-from auth_service.features.rbac.write_repository import RbacWriteRepository
 
 _ESC = chr(27)
 GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
 
 EMAILS = ${emailsPy(v.emails)}
+
+
+async def revoke_role(email):
+    """Снимает роль через CLI ролевой модели: выдачи живут в графе прав."""
+
+    try:
+        from auth_service.cli.rbac.runner import main
+    except ImportError:
+        return f"{YELLOW}CLI ролевой модели нет в этом образе{RESET}"
+    try:
+        code = await main(["revoke", "--email", email, "--role", ROLE_NAME])
+    except SystemExit as error:
+        code = int(error.code or 1)
+    except Exception as error:
+        return f"{RED}ошибка: {type(error).__name__}{RESET}"
+    return "отозвана" if code == 0 else f"{YELLOW}не была назначена{RESET}"
 ROLE_NAME = "Администратор"
 ADMIN_GRANTS = (
     ("admin", "global", "admin.admin"),
@@ -2191,26 +2031,21 @@ async def main():
                     continue
                 grants_deleted = 0
                 async with db.session() as session:
-                    for namespace, resource_id, role_id in ADMIN_GRANTS:
-                        res = await session.execute(
-                            delete(AccessGrantModel).where(
-                                AccessGrantModel.user_id == user.id,
-                                AccessGrantModel.namespace == namespace,
-                                AccessGrantModel.resource_id == resource_id,
-                                AccessGrantModel.role_id == role_id,
-                            )
-                        )
-                        grants_deleted += res.rowcount
-                    rbac_service = RbacCliService(
-                        read_repository=RbacReadRepository(session),
-                        write_repository=RbacWriteRepository(session),
+                    legacy = await session.execute(
+                        text("SELECT to_regclass('public.access_grants') IS NOT NULL")
                     )
-                    try:
-                        was_assigned = await rbac_service.revoke_role(user_id=user.id, role_name=ROLE_NAME)
-                        rbac_status = "отозвана" if was_assigned else "не была назначена"
-                    except RoleNotFoundError:
-                        rbac_status = f"{YELLOW}роли нет на стенде{RESET}"
+                    if legacy.scalar():
+                        for namespace, resource_id, role_id in ADMIN_GRANTS:
+                            res = await session.execute(
+                                text(
+                                    "DELETE FROM access_grants WHERE user_id=:u"
+                                    " AND namespace=:n AND resource_id=:r AND role_id=:role"
+                                ),
+                                {"u": user.id, "n": namespace, "r": resource_id, "role": role_id},
+                            )
+                            grants_deleted += res.rowcount
                     await session.commit()
+                    rbac_status = await revoke_role(email)
                 print(f"{GREEN}[OK]{RESET} {email}: user_id={user.id}")
                 print(f"  RBAC-роль {ROLE_NAME!r}: {rbac_status}")
                 print(f"  legacy grants удалено: {grants_deleted}")
@@ -2222,6 +2057,196 @@ async def main():
     print(f"итого: обработано={revoked} failed={failed}")
     if failed:
         sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "audit-events-access",
+    title: "22. Доступ к аудиту событий",
+    pods: [POD_HEIMDALL],
+    after: "26.07.1",
+    until: "26.08.2",
+    hint: "Роль audit.admin — раздел «События» в админке: просмотр, выгрузка, удаление файлов. Ресурсная модель, с RBAC-ролями не связана.",
+    fields: [
+      { id: "mode", type: "select", label: "Действие", options: [
+        { value: "grant", label: "Выдать доступ" },
+        { value: "check", label: "Кто имеет доступ" },
+        { value: "revoke", label: "Отозвать доступ" },
+      ] },
+      { id: "emails", type: "emails", label: "Email (для выдачи и отзыва)", placeholder: "user1@example.com\nuser2@example.com" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from contextlib import AsyncExitStack
+from sqlalchemy import delete, select
+try:
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import AccessGrantModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import AccessGrantModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import AccessGrantModel
+try:
+    from auth_service.infrastructure.db.transactions import DatabaseTransactionManager
+except ModuleNotFoundError:
+    from auth_service.db.transactions import DatabaseTransactionManager
+from auth_service.features.permissions.manifest_loader import load_permission_manifests
+from auth_service.features.permissions.repository import PermissionRepository
+from auth_service.features.permissions.service import PermissionService
+from auth_service.main import PERMISSIONS_DIR
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAILS = ${emailsPy(v.emails)}
+MODE = "${v.mode}"
+NAMESPACE = "audit"
+RESOURCE_ID = "global"
+ROLE_ID = "audit.admin"
+
+def build_auth_client(settings, http):
+    return AuthClient(
+        config=KeycloakProviderConfig(
+            issuer_url=settings.provider_issuer_url,
+            realm=settings.provider_realm,
+            client_id=settings.provider_client_id,
+            client_secret=settings.provider_client_secret,
+        ),
+        http_client=http,
+    )
+
+async def run_check(session, auth_client):
+    result = await session.execute(
+        select(AccessGrantModel)
+        .where(
+            AccessGrantModel.namespace == NAMESPACE,
+            AccessGrantModel.resource_id == RESOURCE_ID,
+        )
+        .order_by(AccessGrantModel.user_id)
+    )
+    grants = list(result.scalars())
+    if not grants:
+        print(f"{YELLOW}[INFO]{RESET} доступа к аудиту событий нет ни у кого")
+        return 0
+
+    print(f"найдено грантов: {len(grants)} ({NAMESPACE}/{RESOURCE_ID})")
+    print("")
+    alive = 0
+    for grant in grants:
+        user = await auth_client.get_provider_user_by_id(user_id=grant.user_id)
+        if user is None:
+            print(f"{YELLOW}[WARN]{RESET} user_id={grant.user_id}: не найден в provider (zombie-грант)")
+        else:
+            print(f"{GREEN}[OK]{RESET} email={user.email} role={grant.role_id} enabled={user.enabled}")
+            alive += 1
+    print("")
+    print(f"итого: {alive} активных из {len(grants)} грантов")
+    return 0
+
+async def run_grant(service, auth_client, registry):
+    permissions = sorted(registry.get_namespace(NAMESPACE).permissions_by_role(ROLE_ID))
+    print(f"роль {ROLE_ID} даёт: {', '.join(permissions)}")
+    print("")
+    granted = failed = 0
+    for email in EMAILS:
+        user = await auth_client.find_user_by_email(email=email)
+        if user is None:
+            print(f"{RED}[FAIL]{RESET} {email}: не найден в provider")
+            failed += 1
+            continue
+        grant = await service.grant_access(
+            user_id=user.id,
+            namespace=NAMESPACE,
+            resource_id=RESOURCE_ID,
+            role_id=ROLE_ID,
+        )
+        print(f"{GREEN}[OK]{RESET} {email}: user_id={user.id} выдано {grant.namespace}/{grant.resource_id}/{grant.role_id}")
+        granted += 1
+    print("")
+    print(f"итого: выдано={granted} failed={failed}")
+    return 1 if failed else 0
+
+async def run_revoke(session, auth_client):
+    revoked = absent = failed = 0
+    for email in EMAILS:
+        user = await auth_client.find_user_by_email(email=email)
+        if user is None:
+            print(f"{RED}[FAIL]{RESET} {email}: не найден в provider")
+            failed += 1
+            continue
+        result = await session.execute(
+            delete(AccessGrantModel).where(
+                AccessGrantModel.user_id == user.id,
+                AccessGrantModel.namespace == NAMESPACE,
+                AccessGrantModel.resource_id == RESOURCE_ID,
+            )
+        )
+        if result.rowcount:
+            print(f"{GREEN}[OK]{RESET} {email}: user_id={user.id} доступ отозван")
+            revoked += 1
+        else:
+            print(f"{YELLOW}[SKIP]{RESET} {email}: доступа и так не было")
+            absent += 1
+    await session.commit()
+    print("")
+    print(f"итого: отозвано={revoked} уже_не_было={absent} failed={failed}")
+    return 1 if failed else 0
+
+async def main():
+    if MODE not in ("grant", "check", "revoke"):
+        print(f"{RED}ERROR:{RESET} unknown MODE:", MODE)
+        sys.exit(2)
+    if MODE != "check":
+        if not EMAILS:
+            print(f"{RED}ERROR:{RESET} заполните поле email")
+            sys.exit(2)
+        if any("@" not in email for email in EMAILS):
+            print(f"{RED}ERROR:{RESET} invalid email list:", EMAILS)
+            sys.exit(2)
+
+    settings = get_settings()
+    registry = load_permission_manifests(PERMISSIONS_DIR)
+    if registry.find_namespace(NAMESPACE) is None:
+        print(f"{RED}ERROR:{RESET} namespace {NAMESPACE!r} не зарегистрирован в этом образе пода")
+        print("available namespaces:", ", ".join(sorted(registry.namespaces)) or "<empty>")
+        sys.exit(2)
+
+    db = Database(settings)
+    print(f"режим: {MODE}")
+    print("")
+    async with AsyncExitStack() as stack:
+        stack.push_async_callback(db.close)
+        session = await stack.enter_async_context(db.session())
+        service = PermissionService(
+            repository=PermissionRepository(session),
+            registry=registry,
+            transaction_manager=DatabaseTransactionManager(session),
+        )
+        http = await stack.enter_async_context(httpx.AsyncClient())
+        auth_client = build_auth_client(settings, http)
+
+        if MODE == "check":
+            code = await run_check(session, auth_client)
+        elif MODE == "grant":
+            code = await run_grant(service, auth_client, registry)
+        else:
+            code = await run_revoke(session, auth_client)
+
+    if code:
+        sys.exit(code)
 
 asyncio.run(main())
 PY`,
@@ -2564,6 +2589,21 @@ async def ensure_user(client, email):
         raise
     return user, True
 
+async def grant_role(email):
+    """Выдаёт роль через CLI: выдачи живут в графе прав, а не в таблице."""
+
+    try:
+        from auth_service.cli.rbac.runner import main as cli
+    except ImportError:
+        return False
+    try:
+        return await cli(["grant", "--email", email, "--role", ROLE_NAME]) == 0
+    except SystemExit as error:
+        return int(error.code or 1) == 0
+    except Exception:
+        return False
+
+
 async def main():
     if not EMAILS:
         print(f"{RED}ERROR:{RESET} заполните список email")
@@ -2604,15 +2644,7 @@ async def main():
             )
             for email in EMAILS:
                 user, is_new = await ensure_user(client, email)
-                assigned = (
-                    await session.execute(
-                        text(
-                            "INSERT INTO user_global_roles (user_id, role_id, source, assigned_by) "
-                            "VALUES (:u, :r, 'bootstrap', 'dev-onboarding') ON CONFLICT DO NOTHING"
-                        ),
-                        {"u": user.id, "r": role_id},
-                    )
-                ).rowcount
+                assigned = await grant_role(email)
                 for namespace, resource_id, grant_role in GRANTS:
                     await session.execute(
                         text(
@@ -2624,7 +2656,7 @@ async def main():
                         {"u": user.id, "n": namespace, "res": resource_id, "role": grant_role},
                     )
                 state = f"{GREEN}создан{RESET}" if is_new else "уже был"
-                role_state = "роль выдана" if assigned else "роль была"
+                role_state = "роль выдана" if assigned else f"{YELLOW}роль не выдана{RESET}"
                 print(f"{state}\t{role_state}\tгрантов: {len(GRANTS)}\t{email}")
                 if is_new:
                     print(f"    пароль: {derive(email)}")
@@ -2733,6 +2765,578 @@ async def main():
 asyncio.run(main())
 PY`,
   },
+  {
+    id: "set-tenant-owner",
+    title: "28. Передать владение тенантом",
+    pods: [POD_HEIMDALL],
+    after: "26.09.4",
+    hint: "Делает пользователя Владельцем тенанта и снимает роль с прежнего владельца: владелец у тенанта один. Прежний владелец остаётся Участником и теряет управление тарифом. Обратно только повторной передачей. Пользователь должен уже существовать на стенде. Команда есть только в сборках с новой ролевой моделью: на старом образе карточка честно скажет, что команды нет.",
+    danger: true,
+    fields: [
+      { id: "email", type: "email", label: "Новый владелец", placeholder: "ivanov@sberdevices.ru" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import sys
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAIL = ${emailPy(v.email)}
+
+if not EMAIL or "@" not in EMAIL:
+    print(f"{RED}ERROR:{RESET} укажите email нового владельца")
+    sys.exit(2)
+
+try:
+    import anyio
+    from auth_service.cli.rbac.runner import main
+except ImportError as error:
+    print(f"{RED}ERROR:{RESET} CLI ролевой модели недоступен в этом образе: {error}")
+    sys.exit(2)
+
+import os
+
+tenant = os.environ.get("AUTH_TENANT_ID", "").strip() or os.environ.get("AUTH_ORG_ID", "").strip() or "неизвестен"
+print(f"{YELLOW}[INFO]{RESET} тенант: {tenant}")
+print(f"{YELLOW}[INFO]{RESET} новый владелец: {EMAIL}")
+print("")
+
+try:
+    code = anyio.run(main, ["set-tenant-owner", "--email", EMAIL])
+except SystemExit as error:
+    code = int(error.code or 1)
+except Exception as error:
+    print(f"{RED}[FAIL]{RESET} {type(error).__name__}: {error}")
+    sys.exit(1)
+
+if code == 0:
+    print(f"{GREEN}[OK]{RESET} владение передано, прежний владелец остался Участником")
+else:
+    print(f"{RED}[FAIL]{RESET} команда завершилась с кодом {code}")
+sys.exit(code)
+PY`,
+  },
+  {
+    id: "reset-default-role",
+    title: "29. Вернуть роль по умолчанию системной",
+    pods: [POD_HEIMDALL],
+    after: "26.07.1",
+    hint: "Снимает признак «по умолчанию» с кастомной роли и возвращает его системной: в тенанте «Участник», в пространстве «Пользователь». Меняет только признак, выданные роли не трогает. Сначала запустите в режиме показа: он ничего не пишет. Через интерфейс это уже не поправить, переключатель закрыт вместе с конструктором ролей.",
+    danger: true,
+    fields: [
+      { id: "scope", type: "select", label: "Где чинить", options: [
+        { value: "tenant", label: "Роли тенанта" },
+        { value: "workspace", label: "Роли пространства" },
+        { value: "both", label: "И то, и другое" },
+      ] },
+      { id: "mode", type: "select", label: "Режим", options: [
+        { value: "show", label: "Только показать" },
+        { value: "apply", label: "Применить" },
+      ] },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, os, sys, asyncpg
+from urllib.parse import unquote
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+SCOPE = ${JSON.stringify(v.scope || "tenant")}
+APPLY = ${v.mode === "apply" ? "True" : "False"}
+
+TENANT = {
+    "table": "global_roles",
+    "title": "роли тенанта",
+    "key": "tenant.participant",
+    "name": "Участник",
+    "names": ["Участник"],
+    "where": "",
+}
+WORKSPACE = {
+    "table": "entity_roles",
+    "title": "роли пространства",
+    "key": "workspace.user",
+    "name": "Пользователь",
+    "names": ["Пользователь", "Участник"],
+    "where": " AND entity_type = 'workspace'",
+}
+TARGETS = [TENANT] if SCOPE == "tenant" else [WORKSPACE] if SCOPE == "workspace" else [TENANT, WORKSPACE]
+
+async def has_key_column(connection, table):
+    found = await connection.fetchval(
+        "SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = 'key'",
+        table,
+    )
+    return bool(found)
+
+def dsn_parts(url):
+    scheme, _, rest = url.partition("://")
+    creds, _, hostpart = rest.rpartition("@")
+    user, _, password = creds.partition(":")
+    hostport, _, dbname = hostpart.partition("/")
+    dbname = dbname.split("?", 1)[0]
+    host, _, port = hostport.rpartition(":")
+    if not host:
+        host, port = port, ""
+    return {
+        "user": unquote(user),
+        "password": unquote(password),
+        "host": host or "localhost",
+        "port": int(port or 5432),
+        "database": unquote(dbname),
+    }
+
+async def fix(connection, target):
+    table = target["table"]
+    keyed = await has_key_column(connection, table)
+    rows = await connection.fetch(
+        f"SELECT role_id, name, is_default, is_system FROM {table} WHERE TRUE{target['where']} ORDER BY name"
+    )
+    defaults = [row for row in rows if row["is_default"]]
+    print(f"{YELLOW}[INFO]{RESET} {target['title']}: всего {len(rows)}, по умолчанию {len(defaults)}")
+    for row in defaults:
+        mark = "системная" if row["is_system"] else "кастомная"
+        print(f"    сейчас по умолчанию: {row['name']} ({mark})")
+
+    if keyed:
+        wanted = await connection.fetchrow(
+            f"SELECT role_id, name FROM {table} WHERE key = $1{target['where']}",
+            target["key"],
+        )
+    else:
+        wanted = None
+        for name in target["names"]:
+            wanted = await connection.fetchrow(
+                f"SELECT role_id, name FROM {table} WHERE name = $1 AND is_system IS TRUE{target['where']}",
+                name,
+            )
+            if wanted is not None:
+                break
+
+    if wanted is None:
+        print(f"{RED}[FAIL]{RESET} {target['title']}: системной роли «{target['name']}» нет в справочнике")
+        return False
+
+    if len(defaults) == 1 and defaults[0]["role_id"] == wanted["role_id"]:
+        print(f"{GREEN}[OK]{RESET} {target['title']}: уже стоит «{wanted['name']}», делать нечего")
+        return True
+
+    if not APPLY:
+        print(f"{YELLOW}[SKIP]{RESET} {target['title']}: поставил бы «{wanted['name']}», режим показа")
+        return True
+
+    async with connection.transaction():
+        await connection.execute(
+            f"UPDATE {table} SET is_default = FALSE, updated_at = now() "
+            f"WHERE is_default IS TRUE AND role_id <> $1{target['where']}",
+            wanted["role_id"],
+        )
+        await connection.execute(
+            f"UPDATE {table} SET is_default = TRUE, updated_at = now() WHERE role_id = $1",
+            wanted["role_id"],
+        )
+    print(f"{GREEN}[OK]{RESET} {target['title']}: роль по умолчанию теперь «{wanted['name']}»")
+    return True
+
+async def main():
+    tenant = os.environ.get("AUTH_TENANT_ID", "").strip() or os.environ.get("AUTH_ORG_ID", "").strip() or "неизвестен"
+    db_url = os.environ.get("AUTH_DATABASE_URL", "").strip()
+    if not db_url:
+        print(f"{RED}ERROR:{RESET} не задана AUTH_DATABASE_URL")
+        sys.exit(2)
+    parts = dsn_parts(db_url)
+
+    print(f"{YELLOW}[INFO]{RESET} тенант: {tenant}, режим: " + ("применяю" if APPLY else "только показ"))
+    print(f"{YELLOW}[INFO]{RESET} база: {parts['host']}:{parts['port']}/{parts['database']}")
+    connection = await asyncpg.connect(**parts)
+    try:
+        results = [await fix(connection, target) for target in TARGETS]
+    finally:
+        await connection.close()
+    if not all(results):
+        sys.exit(1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "role-migration-status",
+    title: "30. Проверить миграцию ролевой модели",
+    pods: [POD_HEIMDALL],
+    after: "26.09.4",
+    hint: "Только читает: отработал ли перенос кастомных ролей на системные, какие роли есть в справочнике и сколько у каждой держателей. Держатели считаются по графу прав, справочник — по базе. Ничего не меняет. Если перенос ещё не отмечен, значит образ старый либо шаг ждёт переноса выдач и выполнится на следующем старте.",
+    fields: [
+      { id: "detail", type: "select", label: "Что показать", options: [
+        { value: "verdict", label: "Коротко: отработал или нет" },
+        { value: "full", label: "Подробно: роли и держатели" },
+      ] },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, os, sys, asyncpg
+from urllib.parse import unquote
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+FULL = ${JSON.stringify(v.detail || "verdict")} == "full"
+
+MIGRATION = "custom_global_roles_to_system"
+ASSIGNMENTS = "global_role_assignments_to_graph"
+NEW_KEYS = ("tenant.admin.directory", "tenant.admin.extensions")
+
+
+def dsn_parts(url):
+    _, _, rest = url.partition("://")
+    creds, _, hostpart = rest.rpartition("@")
+    user, _, password = creds.partition(":")
+    hostport, _, dbname = hostpart.partition("/")
+    dbname = dbname.split("?", 1)[0]
+    host, _, port = hostport.rpartition(":")
+    if not host:
+        host, port = port, ""
+    return {
+        "user": unquote(user),
+        "password": unquote(password),
+        "host": host or "localhost",
+        "port": int(port or 5432),
+        "database": unquote(dbname),
+    }
+
+
+async def holders_by_role(role_ids):
+    try:
+        from auth_service.bootstrap.config import get_settings
+        from auth_service.cli.authorization_store import open_authorization_store
+        from auth_service.features.rbac.global_grants import GlobalRoleGrants
+    except ImportError as error:
+        print(f"{YELLOW}[WARN]{RESET} граф прав недоступен из этого образа: {error}")
+        return {}
+    settings = get_settings()
+    counts = {}
+    async with open_authorization_store(settings) as store:
+        grants = GlobalRoleGrants(store=store, tenant_id=settings.tenant_id)
+        for role_id in role_ids:
+            counts[role_id] = len(await grants.holders_of(role_id))
+    return counts
+
+
+async def main():
+    db_url = os.environ.get("AUTH_DATABASE_URL", "").strip()
+    if not db_url:
+        print(f"{RED}ERROR:{RESET} не задана AUTH_DATABASE_URL")
+        sys.exit(2)
+    parts = dsn_parts(db_url)
+    print(f"{YELLOW}[INFO]{RESET} база: {parts['host']}:{parts['port']}/{parts['database']}")
+    connection = await asyncpg.connect(**parts)
+    try:
+        done = {row["name"] for row in await connection.fetch("SELECT name FROM data_migrations")}
+        roles = await connection.fetch(
+            "SELECT role_id, key, name, is_system, is_default FROM global_roles ORDER BY is_system DESC, name"
+        )
+    finally:
+        await connection.close()
+
+    missing_keys = [key for key in NEW_KEYS if key not in {row["key"] for row in roles}]
+    custom = [row for row in roles if not row["is_system"]]
+
+    if MIGRATION in done:
+        print(f"{GREEN}[OK]{RESET} перенос кастомных ролей отмечен выполненным")
+    elif ASSIGNMENTS not in done:
+        print(f"{YELLOW}[WARN]{RESET} перенос ждёт переноса выдач в граф, выполнится на следующем старте")
+    else:
+        print(f"{RED}[FAIL]{RESET} перенос не выполнялся: образ старый или шаг упал, смотрите логи пода")
+
+    if missing_keys:
+        print(f"{RED}[FAIL]{RESET} нет новых системных ролей: " + ", ".join(missing_keys))
+    else:
+        print(f"{GREEN}[OK]{RESET} новые системные роли на месте")
+
+    print(f"{YELLOW}[INFO]{RESET} ролей всего: {len(roles)}, из них кастомных: {len(custom)}")
+    if custom:
+        print(f"{YELLOW}[INFO]{RESET} кастомные остались в справочнике на чтение: " + ", ".join(row["name"] for row in custom))
+
+    if not FULL:
+        sys.exit(0 if MIGRATION in done and not missing_keys else 1)
+
+    counts = await holders_by_role([row["role_id"] for row in roles])
+    print()
+    print("роль".ljust(46) + "ключ".ljust(26) + "держателей")
+    for row in roles:
+        key = row["key"] or "-"
+        mark = " (по умолчанию)" if row["is_default"] else ""
+        holders = counts.get(row["role_id"])
+        cell = "?" if holders is None else str(holders)
+        print((row["name"] + mark).ljust(46) + key.ljust(26) + cell)
+
+    sys.exit(0 if MIGRATION in done and not missing_keys else 1)
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "consents-stats",
+    title: "27. Статистика согласий по тенанту",
+    pods: [POD_HEIMDALL],
+    hint: "Только читает: сколько зарегистрированных пользователей стенда дали юридические согласия, с разбивкой по документам и версиям. Ничего не меняет. Считает по локальной копии пользователей, поэтому печатает её давность — если сверка отстала, числа занижены. Один запуск = один тенант, для сводки соберите CSV-строки с нескольких стендов.",
+    fields: [
+      { id: "scope", type: "select", label: "Кого считать", options: [
+        { value: "enabled", label: "Только активных пользователей" },
+        { value: "disabled", label: "Всех, включая отключённых" },
+      ] },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, os, sys, asyncpg
+from datetime import UTC, datetime
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+ONLY_ENABLED = ${v.scope === "disabled" ? "False" : "True"}
+STALE_WARNING_MINUTES = 60
+
+async def main():
+    tenant = os.environ.get("AUTH_ORG_ID", "").strip() or "неизвестен"
+    subdomain = os.environ.get("AUTH_COWORK_SUBDOMAIN", "").strip() or "-"
+    db_url = os.environ.get("AUTH_DATABASE_URL", "").strip()
+    if not db_url:
+        print(f"{RED}ERROR:{RESET} в поде нет AUTH_DATABASE_URL")
+        sys.exit(2)
+    if db_url.startswith("postgresql+asyncpg://"):
+        db_url = db_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+
+    conn = await asyncpg.connect(db_url)
+    try:
+        missing = await conn.fetchval(
+            "SELECT to_regclass('public.user_legal_consents') IS NULL"
+            " OR to_regclass('public.provider_users') IS NULL"
+        )
+        if missing:
+            print(f"{RED}ERROR:{RESET} на стенде нет таблиц provider_users/user_legal_consents, версия сервиса старее согласий")
+            sys.exit(2)
+
+        users = await conn.fetchrow(
+            "SELECT count(*) AS total,"
+            " count(*) FILTER (WHERE enabled) AS enabled,"
+            " max(synced_at) AS synced_at"
+            " FROM provider_users"
+        )
+        scope_sql = " AND u.enabled" if ONLY_ENABLED else ""
+        base = users["enabled"] if ONLY_ENABLED else users["total"]
+
+        with_consent = await conn.fetchval(
+            "SELECT count(DISTINCT u.provider_user_id) FROM provider_users u"
+            " JOIN user_legal_consents c ON c.provider_user_id = u.provider_user_id"
+            f" WHERE c.accepted{scope_sql}"
+        )
+        orphans = await conn.fetchval(
+            "SELECT count(DISTINCT c.provider_user_id) FROM user_legal_consents c"
+            " WHERE c.accepted AND NOT EXISTS ("
+            "   SELECT 1 FROM provider_users u WHERE u.provider_user_id = c.provider_user_id)"
+        )
+        documents = await conn.fetch(
+            "SELECT c.document_key, c.document_version,"
+            " count(DISTINCT c.provider_user_id) FILTER (WHERE c.accepted) AS accepted,"
+            " count(DISTINCT c.provider_user_id) FILTER (WHERE NOT c.accepted) AS declined"
+            " FROM user_legal_consents c JOIN provider_users u"
+            "   ON u.provider_user_id = c.provider_user_id"
+            f" WHERE TRUE{scope_sql}"
+            " GROUP BY c.document_key, c.document_version"
+            " ORDER BY c.document_key, c.document_version"
+        )
+        first_at, last_at = await conn.fetchrow(
+            "SELECT min(accepted_at), max(accepted_at) FROM user_legal_consents WHERE accepted"
+        )
+    finally:
+        await conn.close()
+
+    scope_label = "активных" if ONLY_ENABLED else "всех"
+    share = f"{with_consent * 100 / base:.1f}%" if base else "-"
+
+    print(f"тенант: {tenant} (поддомен {subdomain})")
+    print(f"пользователей в копии: всего={users['total']} активных={users['enabled']}")
+
+    synced_at = users["synced_at"]
+    if synced_at is None:
+        print(f"{YELLOW}[WARN]{RESET} копия пользователей ни разу не синхронизировалась, числа могут врать")
+    else:
+        if synced_at.tzinfo is None:
+            synced_at = synced_at.replace(tzinfo=UTC)
+        age_minutes = int((datetime.now(UTC) - synced_at).total_seconds() // 60)
+        line = f"копия обновлена: {synced_at:%d.%m.%Y %H:%M} UTC, давность {age_minutes} мин"
+        if age_minutes > STALE_WARNING_MINUTES:
+            print(f"{YELLOW}[WARN]{RESET} {line} — сверка отстаёт, числа могут врать")
+        else:
+            print(f"{GREEN}[OK]{RESET} {line}")
+
+    print("")
+    print(f"дали согласие: {with_consent} из {base} {scope_label} ({share})")
+    print(f"без согласия: {max(base - with_consent, 0)}")
+    if orphans:
+        print(f"{YELLOW}[INFO]{RESET} согласий от пользователей вне копии: {orphans} (удалены или не попали в сверку)")
+    if first_at and last_at:
+        print(f"период согласий: {first_at:%d.%m.%Y} — {last_at:%d.%m.%Y}")
+
+    print("")
+    print("по документам:")
+    if not documents:
+        print(f"  {YELLOW}нет ни одного согласия{RESET}")
+    for row in documents:
+        version = row["document_version"] or "-"
+        print(f"  {row['document_key']} v{version}: принято={row['accepted']} отказов={row['declined']}")
+
+    print("")
+    print("CSV для сводки по тенантам:")
+    print("tenant,subdomain,users_total,users_enabled,with_consent,share_percent")
+    percent = f"{with_consent * 100 / base:.1f}" if base else "0.0"
+    print(f"{tenant},{subdomain},{users['total']},{users['enabled']},{with_consent},{percent}")
+
+asyncio.run(main())
+PY`,
+  },
+  {
+    id: "workspace-access-audit",
+    title: "31. Разобрать доступ человека к пространству",
+    pods: [POD_HEIMDALL],
+    hint: "Только читает: какие глобальные роли и роли пространства выданы человеку в графе прав, какие права он из них получает на этом пространстве и пускает ли граф его внутрь. Отвечает на вопрос «почему пишет, что пространство недоступно». Ничего не меняет.",
+    fields: [
+      { id: "email", type: "email", label: "Почта пользователя", placeholder: "ivanov@gigab2b.ru" },
+      { id: "workspace_id", type: "text", label: "Идентификатор пространства", placeholder: "a3aa9ba0-c382-4199-9c5a-d93b2c8e0a82" },
+    ],
+    render: (v) => `/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, os, sys, asyncpg
+from urllib.parse import unquote
+
+_ESC = chr(27)
+GREEN, RED, YELLOW, RESET = f"{_ESC}[32m", f"{_ESC}[31m", f"{_ESC}[33m", f"{_ESC}[0m"
+
+EMAIL = ${emailPy(v.email)}
+WORKSPACE_ID = ${fioPy(v.workspace_id)} or ""
+WORKSPACE_TYPE = "workspace"
+ENTRY_PERMISSION = "workspace.read"
+TENANT_ENTRY_PERMISSION = "workspaces.access"
+
+
+def dsn_parts(url):
+    _, _, rest = url.partition("://")
+    creds, _, hostpart = rest.rpartition("@")
+    user, _, password = creds.partition(":")
+    hostport, _, dbname = hostpart.partition("/")
+    dbname = dbname.split("?", 1)[0]
+    host, _, port = hostport.rpartition(":")
+    if not host:
+        host, port = port, ""
+    return {
+        "user": unquote(user),
+        "password": unquote(password),
+        "host": host or "localhost",
+        "port": int(port or 5432),
+        "database": unquote(dbname),
+    }
+
+
+async def read_directory():
+    db_url = os.environ.get("AUTH_DATABASE_URL", "").strip()
+    if not db_url:
+        print(f"{RED}ERROR:{RESET} не задана AUTH_DATABASE_URL")
+        sys.exit(2)
+    parts = dsn_parts(db_url)
+    print(f"{YELLOW}[INFO]{RESET} база: {parts['host']}:{parts['port']}/{parts['database']}")
+    connection = await asyncpg.connect(**parts)
+    try:
+        user = await connection.fetchrow(
+            "SELECT provider_user_id, username, enabled FROM provider_users WHERE email_normalized = $1",
+            EMAIL,
+        )
+        global_roles = await connection.fetch("SELECT role_id, key, name, is_system FROM global_roles")
+        entity_roles = await connection.fetch(
+            "SELECT role_id, key, name, is_system FROM entity_roles WHERE entity_type = $1",
+            WORKSPACE_TYPE,
+        )
+    finally:
+        await connection.close()
+    return user, global_roles, entity_roles
+
+
+def describe(role_row):
+    if role_row is None:
+        return "роль отсутствует в справочнике"
+    kind = "системная" if role_row["is_system"] else "кастомная"
+    return f"{role_row['name']} [{role_row['key'] or 'без ключа'}, {kind}]"
+
+
+async def main():
+    if not EMAIL:
+        print(f"{RED}ERROR:{RESET} не указана почта")
+        sys.exit(2)
+    if not WORKSPACE_ID:
+        print(f"{RED}ERROR:{RESET} не указан идентификатор пространства")
+        sys.exit(2)
+
+    user, global_roles, entity_roles = await read_directory()
+    if user is None:
+        print(f"{RED}[FAIL]{RESET} пользователя с почтой {EMAIL} нет в проекции провайдера")
+        sys.exit(1)
+    user_id = user["provider_user_id"]
+    state = "активен" if user["enabled"] else "заблокирован"
+    print(f"{GREEN}[OK]{RESET} пользователь {user['username']} ({user_id}), {state}")
+
+    from auth_service.bootstrap.config import get_settings
+    from auth_service.cli.authorization_store import open_authorization_store
+    from auth_service.features.access.models import Resource, Subject, SubjectType
+    from auth_service.features.access.relations import TENANT_TYPE
+
+    settings = get_settings()
+    subject = Subject(type=SubjectType.USER, id=user_id)
+    tenant = Resource(type=TENANT_TYPE, id=settings.tenant_id)
+    workspace = Resource(type=WORKSPACE_TYPE, id=WORKSPACE_ID)
+    by_global = {str(row["role_id"]): row for row in global_roles}
+    by_entity = {str(row["role_id"]): row for row in entity_roles}
+
+    async with open_authorization_store(settings) as store:
+        tenant_grants = await store.grants_of(subject, tenant)
+        workspace_grants = await store.grants_of(subject, workspace)
+        tenant_permissions = await store.permissions_of(subject, tenant)
+        workspace_permissions = await store.permissions_of(subject, workspace)
+
+    print()
+    print("глобальные роли в графе:")
+    if not tenant_grants:
+        print(f"  {RED}[FAIL]{RESET} ни одной, человек не участник тенанта")
+    for grant in tenant_grants:
+        print(f"  {describe(by_global.get(str(grant.role_id)))}")
+
+    print()
+    print("роли на этом пространстве:")
+    if not workspace_grants:
+        print(f"  {RED}[FAIL]{RESET} ни одной выдачи, участника в графе нет")
+    for grant in workspace_grants:
+        print(f"  {describe(by_entity.get(str(grant.role_id)))}")
+
+    print()
+    print(f"прав на тенанте: {len(tenant_permissions)}, на пространстве: {len(workspace_permissions)}")
+    if workspace_permissions:
+        print("  " + ", ".join(sorted(workspace_permissions)))
+
+    print()
+    entry = ENTRY_PERMISSION in workspace_permissions
+    access = TENANT_ENTRY_PERMISSION in tenant_permissions
+    if entry:
+        print(f"{GREEN}[OK]{RESET} граф пускает в пространство: есть {ENTRY_PERMISSION}")
+    else:
+        print(f"{RED}[FAIL]{RESET} граф не пускает в пространство: нет {ENTRY_PERMISSION}")
+    if access:
+        print(f"{GREEN}[OK]{RESET} доступ к разделу пространств есть: {TENANT_ENTRY_PERMISSION}")
+    else:
+        print(f"{RED}[FAIL]{RESET} нет {TENANT_ENTRY_PERMISSION}, разделом пространств пользоваться нельзя")
+
+    if not entry and not workspace_grants:
+        print(f"{YELLOW}[INFO]{RESET} участник числится в базе yggdrasil, но выдачи в графе нет: расхождение базы и графа")
+
+    sys.exit(0 if entry and access else 1)
+
+asyncio.run(main())
+PY`,
+  },
 ];
 
 function fieldMarkup(cmdId, field) {
@@ -2788,16 +3392,19 @@ function buildItem(cmd) {
   const details = document.createElement("details");
   details.className = "item";
   details.dataset.id = cmd.id;
-  details.dataset.searchText = [cmd.title, cmd.hint, ...cmd.pods].join(" ").toLowerCase();
+  const rangeText = versionRangeLabel(cmd);
+  details.dataset.searchText = [cmd.title, cmd.hint, ...cmd.pods, rangeText].join(" ").toLowerCase();
 
   const podTags = cmd.pods.map((p) => `<span class="tag pod-${p}">${p}</span>`).join("");
   const dangerTag = cmd.danger ? `<span class="tag danger">опасно</span>` : "";
+  const rangeTag = rangeText ? `<span class="tag range">${rangeText}</span>` : "";
 
   details.innerHTML = `
     <summary class="item-head">
       <span class="item-title">${cmd.title}</span>
       ${podTags}
       ${dangerTag}
+      ${rangeTag}
       <span class="chevron">&#9662;</span>
     </summary>
     <div class="item-body">
@@ -2842,22 +3449,68 @@ function buildItem(cmd) {
 
 const listEl = document.getElementById("list");
 const emptyState = document.getElementById("empty-state");
-COMMANDS.forEach((cmd) => listEl.appendChild(buildItem(cmd)));
-
-document.getElementById("version").textContent = HELPER_VERSION;
-
+const unavailableEl = document.getElementById("unavailable");
+const unavailableTitle = document.getElementById("unavailable-title");
+const unavailableListEl = document.getElementById("unavailable-list");
+const versionSelect = document.getElementById("stand-version");
 const searchInput = document.getElementById("search");
+const items = COMMANDS.map((cmd) => ({ cmd, element: buildItem(cmd) }));
+
+function readStoredVersion() {
+  try {
+    return localStorage.getItem(VERSION_STORAGE_KEY);
+  } catch (error) {
+    return null;
+  }
+}
+
+function storeVersion(version) {
+  try {
+    localStorage.setItem(VERSION_STORAGE_KEY, version);
+  } catch (error) {
+    console.warn("Не удалось запомнить версию стенда:", error);
+  }
+}
+
+function placeItems() {
+  const version = versionSelect.value;
+  for (const { cmd, element } of items) {
+    const targetList = isAvailableIn(cmd, version) ? listEl : unavailableListEl;
+    targetList.appendChild(element);
+  }
+  applySearch();
+}
+
 function applySearch() {
   const query = searchInput.value.trim().toLowerCase();
-  let visibleCount = 0;
-  listEl.querySelectorAll("details.item").forEach((details) => {
-    const match = !query || details.dataset.searchText.includes(query);
-    details.hidden = !match;
-    if (match) visibleCount += 1;
-  });
-  emptyState.style.display = visibleCount === 0 ? "block" : "none";
+  let availableCount = 0;
+  let unavailableCount = 0;
+  for (const { element } of items) {
+    const match = !query || element.dataset.searchText.includes(query);
+    element.hidden = !match;
+    if (!match) continue;
+    if (element.parentElement === listEl) availableCount += 1;
+    else unavailableCount += 1;
+  }
+  unavailableTitle.textContent = `Недоступно для ${versionLabel(versionSelect.value)} (${unavailableCount})`;
+  unavailableEl.hidden = unavailableCount === 0;
+  emptyState.style.display = availableCount + unavailableCount === 0 ? "block" : "none";
 }
+
+const versionOptions = [MASTER_VERSION, ...[...RELEASES].reverse()];
+versionSelect.innerHTML = versionOptions
+  .map((version) => `<option value="${version}">${versionLabel(version)}</option>`)
+  .join("");
+const storedVersion = readStoredVersion();
+versionSelect.value = versionOptions.includes(storedVersion) ? storedVersion : LATEST_RELEASE;
+versionSelect.addEventListener("change", () => {
+  storeVersion(versionSelect.value);
+  placeItems();
+});
+
+document.getElementById("version").textContent = LATEST_RELEASE;
 searchInput.addEventListener("input", applySearch);
+placeItems();
 </script>
 </body>
 </html>

@@ -1,0 +1,281 @@
+Изменения от 2026-10-06 17:58:03.249361
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0312/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0312/config.yaml
+index cfa20c079..708abe55c 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0312/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0312/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0312
+ cowork_s3_label: cowork-st02-0312
+-cowork_subdomain: cowork-st02-0312
++cowork_subdomain: rodinagroup
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: d.sobolev@rodinagroup.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '7702841712'
++  expiry_date: '2026-10-16'
++  status: trial
++  id: ef511b73-e37c-487f-9dce-2ff667c700dd
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0314/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0314/config.yaml
+index e403e2d64..2c8fa3539 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0314/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0314/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0314
+ cowork_s3_label: cowork-st02-0314
+-cowork_subdomain: cowork-st02-0314
++cowork_subdomain: nkbk
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: nabiullin@nkbk.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '1650017638'
++  expiry_date: '2026-10-19'
++  status: trial
++  id: c6ec781b-24ea-4a03-bc3a-af24d7f38016
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0315/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0315/config.yaml
+index 864e00caa..29eb2f167 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0315/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0315/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0315
+ cowork_s3_label: cowork-st02-0315
+-cowork_subdomain: cowork-st02-0315
++cowork_subdomain: dizol777
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: dominicfrost777@mail.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '7730239877'
++  expiry_date: '2026-10-13'
++  status: trial
++  id: fda1d5c8-e44b-4eba-b803-f069284a3ebe
+diff --git a/dev/cowork/apps/heimdall/heimdall-argocd.yaml b/dev/cowork/apps/heimdall/heimdall-argocd.yaml
+index ef543cb42..16db98836 100755
+--- a/dev/cowork/apps/heimdall/heimdall-argocd.yaml
++++ b/dev/cowork/apps/heimdall/heimdall-argocd.yaml
+@@ -95,8 +95,8 @@ spec:
+             releaseName: openfga
+             skipSchemaValidation: true
+             valueFiles:
+-              - $helm/{{.environment}}/heimdall/openfga-nxs-values.yaml
+-              - $helm/overrides/sizing/{{ dig "sizing" "trial" . }}/heimdall/openfga-nxs-values.yaml
++              - $helm/{{.environment}}/openfga/openfga-nxs-values.yaml
++              - $helm/overrides/sizing/{{ dig "sizing" "trial" . }}/openfga/openfga-nxs-values.yaml
+             valuesObject:
+               deployments:
+                 openfga:
+diff --git a/dev/cowork/stands/cowork-dev-01/config.yaml b/dev/cowork/stands/cowork-dev-01/config.yaml
+index ac748739b..e1d8387ff 100644
+--- a/dev/cowork/stands/cowork-dev-01/config.yaml
++++ b/dev/cowork/stands/cowork-dev-01/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-01"
+-cowork_revision: "feature/SDBPROD-993/multitenancy"
++cowork_revision: "master"
+ argocd_shard: "1"
+ stand_node_label: "cowork"
+ cowork_s3_label: "cowork-dev"
+diff --git a/dev/cowork/stands/cowork-dev-03/config.yaml b/dev/cowork/stands/cowork-dev-03/config.yaml
+index faa4ca6ec..8972bdad0 100644
+--- a/dev/cowork/stands/cowork-dev-03/config.yaml
++++ b/dev/cowork/stands/cowork-dev-03/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-03"
+-cowork_revision: "bugfix/SDBPROD-2124/preserve-history-dates"
++cowork_revision: "feature/SDBPROD-1576/helheim-with-weaviate"
+ argocd_shard: "1"
+ stand_node_label: "cowork-dev-04"
+ cowork_s3_label: "cowork-dev"
+diff --git a/dev/cowork/stands/cowork-dev-qa-05/config.yaml b/dev/cowork/stands/cowork-dev-qa-05/config.yaml
+index 07e64644d..0b88219d1 100644
+--- a/dev/cowork/stands/cowork-dev-qa-05/config.yaml
++++ b/dev/cowork/stands/cowork-dev-qa-05/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-qa-05"
+-cowork_revision: "master"
++cowork_revision: "feature/SDBPROD-2174-cherry-pick"
+ argocd_shard: "1"
+ stand_node_label: "cowork"
+ cowork_s3_label: "cowork-dev"
+diff --git a/stage/cowork/cowork-argocd.yaml b/stage/cowork/cowork-argocd.yaml
+index 97a9069bb..a98487b9c 100644
+--- a/stage/cowork/cowork-argocd.yaml
++++ b/stage/cowork/cowork-argocd.yaml
+@@ -27,7 +27,7 @@ spec:
+       labels:
+         app.kubernetes.io/part-of: cowork-app-of-apps
+       annotations:
+-        argocd.argoproj.io/manifest-generate-paths: cowork-argocd.yaml;cowork-audit-argocd.yaml;cowork-e2e-probe-argocd.yaml;cowork-freyr-argocd.yaml;cowork-guardrails-argocd.yaml;cowork-mcps-argocd.yaml;cowork-performance-product-argocd.yaml;cowork-skidbladnir-argocd.yaml;cowork-tenant-service-argocd.yaml;cowork-tenant-service-kubeapi-worker-argocd.yaml
++        argocd.argoproj.io/manifest-generate-paths: cowork-argocd.yaml;cowork-audit-argocd.yaml;cowork-e2e-probe-argocd.yaml;cowork-freyr-argocd.yaml;cowork-guardrails-argocd.yaml;cowork-load-test-httproutes-argocd.yaml;cowork-mcps-argocd.yaml;cowork-performance-product-argocd.yaml;cowork-skidbladnir-argocd.yaml;cowork-tenant-service-argocd.yaml;cowork-tenant-service-kubeapi-worker-argocd.yaml
+     spec:
+       project: "cowork"
+       sources:
+@@ -35,7 +35,7 @@ spec:
+           targetRevision: master
+           path: '{{.environment}}/cowork'
+           directory:
+-            include: '{cowork-argocd.yaml,cowork-audit-argocd.yaml,cowork-e2e-probe-argocd.yaml,cowork-freyr-argocd.yaml,cowork-guardrails-argocd.yaml,cowork-mcps-argocd.yaml,cowork-performance-product-argocd.yaml,cowork-skidbladnir-argocd.yaml,cowork-tenant-service-argocd.yaml,cowork-tenant-service-kubeapi-worker-argocd.yaml}'
++            include: '{cowork-argocd.yaml,cowork-audit-argocd.yaml,cowork-e2e-probe-argocd.yaml,cowork-freyr-argocd.yaml,cowork-guardrails-argocd.yaml,cowork-load-test-httproutes-argocd.yaml,cowork-mcps-argocd.yaml,cowork-performance-product-argocd.yaml,cowork-skidbladnir-argocd.yaml,cowork-tenant-service-argocd.yaml,cowork-tenant-service-kubeapi-worker-argocd.yaml}'
+         - repoURL: 'https://github.com/nixys/nxs-universal-chart.git'
+           targetRevision: v3.0.18
+           path: .
+diff --git a/stage/cowork/cowork-load-test-httproutes-argocd.yaml b/stage/cowork/cowork-load-test-httproutes-argocd.yaml
+new file mode 100644
+index 000000000..0841a2b90
+--- /dev/null
++++ b/stage/cowork/cowork-load-test-httproutes-argocd.yaml
+@@ -0,0 +1,92 @@
++apiVersion: argoproj.io/v1alpha1
++kind: ApplicationSet
++metadata:
++  name: cowork-load-test-httproutes
++  namespace: cowork
++  annotations:
++    argocd.argoproj.io/sync-wave: "6"
++spec:
++  goTemplate: true
++  goTemplateOptions: ["missingkey=error"]
++  generators:
++    - matrix:
++        generators:
++          - clusters:
++              selector:
++                matchLabels:
++                  environment: stage
++                  argocd_shard: "1"
++          - git:
++              repoURL: https://git.sberdevices.ru/gigabb/infra/cowork/argocd.git
++              revision: master
++              files:
++                - path: 'clusters-config/{{ index .metadata.labels "k8s_cluster_name" }}/config.yaml'
++  template:
++    metadata:
++      name: cowork-load-test-httproutes
++      labels:
++        app.kubernetes.io/part-of: cowork-load-test-httproutes
++    spec:
++      project: cowork
++      source:
++        repoURL: https://github.com/nixys/nxs-universal-chart.git
++        targetRevision: v3.0.18
++        path: .
++        helm:
++          passCredentials: true
++          releaseName: cowork-load-test-httproutes
++          values: |
++            releasePrefix: "-"
++            generic:
++              hookAnnotations: null
++            extraDeploy:
++            {{ range $i := untilStep 1 31 1 }}
++              midgard-web-{{ printf "%02d" $i }}: |
++                apiVersion: gateway.networking.k8s.io/v1
++                kind: HTTPRoute
++                metadata:
++                  name: midgard-web-{{ printf "%02d" $i }}
++                  annotations:
++                    argocd.argoproj.io/sync-wave: "1"
++                spec:
++                  parentRefs:
++                    - group: gateway.networking.k8s.io
++                      kind: Gateway
++                      name: eg
++                      namespace: envoy-gateway-system
++                      sectionName: https
++                  hostnames:
++                    - loadtest-{{ printf "%02d" $i }}.{{ $.base_domain }}
++                  rules:
++                    - backendRefs:
++                        - group: ""
++                          kind: Service
++                          name: midgard
++                          port: 80
++                          weight: 1
++                      matches:
++                        - path:
++                            type: PathPrefix
++                            value: /
++                      timeouts:
++                        backendRequest: 0s
++                        request: 0s
++            {{ end }}
++      destination:
++        server: "{{.server}}"
++        namespace: cowork-load-test-1
++      syncPolicy:
++        automated:
++          enabled: true
++          selfHeal: false
++          prune: false
++        syncOptions:
++          - RespectIgnoreDifferences=true
++          - PruneLast=true
++        retry:
++          limit: 10
++          backoff:
++            duration: 10s
++            factor: 2
++            maxDuration: 5m
++      revisionHistoryLimit: 3
+diff --git a/stage/cowork/stands/cowork-load-test-2/config.yaml b/stage/cowork/stands/cowork-load-test-2/config.yaml
+new file mode 100644
+index 000000000..aae4e44d1
+--- /dev/null
++++ b/stage/cowork/stands/cowork-load-test-2/config.yaml
+@@ -0,0 +1,24 @@
++stand_name: "cowork-load-test-2"
++argocd_shard: "1"
++stand_node_label: "load-test"
++cowork_s3_label: "cowork-stage-02"
++cowork_data_storage_class: "cowork-load-test-2-juicefs-sc"
++block_volume_storage_class: "topolvm-csi"
++postgres_storage_size: "10Gi"
++juicefs_enabled: true
++cowork_data_size: "100Gi"
++sizing: large
++pg_stat_statements_enabled: true
++
++mimir:
++  memray: false
++  memray_pvc_size: "100Gi"
++
++cowork_subdomain: "load-test-2"
++e2e_probe: true
++cowork_revision: "feature/SDBPROD-993/multitenancy.stage"
++llm_model_name: "cowork-pro"
++llm_api_base_url: "https://litellm-baremetal-gpu.cowork.ru/v1"
++
++autosync: true
++occupied: true

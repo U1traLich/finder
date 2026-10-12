@@ -1,0 +1,55 @@
+Изменения от 2026-10-09 12:16:00.124228
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0069/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0069/config.yaml
+index 81dc4fa51..1126a407b 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0069/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0069/config.yaml
+@@ -5,7 +5,7 @@ argocd_destination_server: "https://kubernetes-shard-1.argocd.svc"
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb01-0069"
+ cowork_s3_label: "cowork-tb01-0069"
+-cowork_subdomain: cowork-tb01-0069
++cowork_subdomain: evgeniya
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -13,5 +13,13 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+ autosync: true
+-occupied: false
++occupied: true
+ 
++bootstrap: true
++admin_email: evgeniya.kolosova939@gmail.com
++trial: true
++meta:
++  expiry_date: '2026-10-16'
++  status: trial
++  inn: '9706016369'
++  id: b32be91b-40c4-4d6f-a48a-f19414bd5453
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0664/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0664/config.yaml
+index 0979d0f65..3bbd7e547 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0664/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0664/config.yaml
+@@ -20,6 +20,6 @@ trial: false
+ admin_email: t.s.s.2000@bk.ru
+ meta:
+   status: grace
+-  expiry_date: '2026-10-01'
++  expiry_date: '2026-10-15'
+   inn: '5609184850'
+   id: 555a10d3-4ce9-4890-8a49-fb2961d825a8
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0685/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0685/config.yaml
+index e27c967b9..5f953f88f 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0685/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0685/config.yaml
+@@ -18,7 +18,7 @@ occupied: true
+ trial: false
+ meta:
+   status: grace
+-  expiry_date: '2026-10-09'
++  expiry_date: '2026-11-10'
+   inn: '2508070347'
+   id: f255f7ff-4abc-4251-9667-5c8862681249
+ bootstrap: true

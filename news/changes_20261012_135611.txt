@@ -1,0 +1,57 @@
+Изменения от 2026-10-12 13:56:11.578439
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0020/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0020/config.yaml
+index 3d761a0ee..81f49044a 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0020/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0020/config.yaml
+@@ -5,12 +5,20 @@ argocd_destination_server: "https://kubernetes-shard-1.argocd.svc"
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb01-0020"
+ cowork_s3_label: "cowork-tb01-0020"
+-cowork_subdomain: cowork-tb01-0020
++cowork_subdomain: ssmaslov
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+-occupied: false
++occupied: true
+ autosync: true
++bootstrap: true
++admin_email: ssmaslov@sberbank.ru
++trial: true
++meta:
++  expiry_date: '2026-10-19'
++  status: trial
++  inn: '7707083893'
++  id: a5d1b40d-6f34-453a-9c9f-21db48a2e340
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0072/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0072/config.yaml
+index 90dec78e9..0eea25a64 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0072/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0072/config.yaml
+@@ -5,7 +5,7 @@ argocd_destination_server: "https://kubernetes-shard-1.argocd.svc"
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb01-0072"
+ cowork_s3_label: "cowork-tb01-0072"
+-cowork_subdomain: cowork-tb01-0072
++cowork_subdomain: algk
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -13,5 +13,13 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+ autosync: true
+-occupied: false
++occupied: true
+ 
++bootstrap: true
++admin_email: dv.stepanov@algk.ru
++trial: true
++meta:
++  expiry_date: '2026-10-19'
++  status: trial
++  inn: '5408008559'
++  id: ec95b76d-7f84-4265-a162-42ad55806c3f

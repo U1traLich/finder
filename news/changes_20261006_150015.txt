@@ -1,0 +1,56 @@
+Изменения от 2026-10-06 15:00:15.175020
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0308/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0308/config.yaml
+index 1a8443de4..d399d227f 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0308/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0308/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0308
+ cowork_s3_label: cowork-st02-0308
+-cowork_subdomain: cowork-st02-0308
++cowork_subdomain: qqq333
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: natalamilesko9784@gmail.com
++bootstrap: true
++trial: true
++meta:
++  inn: '650101258639'
++  expiry_date: '2026-10-13'
++  status: trial
++  id: fc000512-3a9d-4fce-a59f-4db9289a50db
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0309/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0309/config.yaml
+index faa561bab..de93f6e2b 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0309/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0309/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0309
+ cowork_s3_label: cowork-st02-0309
+-cowork_subdomain: cowork-st02-0309
++cowork_subdomain: taiga
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: kostomarov.kir@taiga.aero
++bootstrap: true
++trial: true
++meta:
++  inn: '6500000867'
++  expiry_date: '2026-10-13'
++  status: trial
++  id: 265d0fb3-c4e7-43af-bc11-096851ca36cd

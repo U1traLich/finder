@@ -1,0 +1,56 @@
+Изменения от 2026-10-06 15:44:24.606596
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0311/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0311/config.yaml
+index 40e3e7fbb..e3a614d2b 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0311/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0311/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0311
+ cowork_s3_label: cowork-st02-0311
+-cowork_subdomain: cowork-st02-0311
++cowork_subdomain: kireevo
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: v.remez2012@yandex.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '3422008765'
++  expiry_date: '2026-10-13'
++  status: trial
++  id: 52a73d1a-6a7b-4988-9e35-5aa46c802f39
+diff --git a/dev/cowork/stands/cowork-dev-loadtest-01/config.yaml b/dev/cowork/stands/cowork-dev-loadtest-01/config.yaml
+deleted file mode 100644
+index e610d642c..000000000
+--- a/dev/cowork/stands/cowork-dev-loadtest-01/config.yaml
++++ /dev/null
+@@ -1,21 +0,0 @@
+-stand_name: "cowork-dev-loadtest-01"
+-cowork_revision: "master"
+-
+-argocd_shard: "1"
+-
+-stand_node_label: "cowork"
+-cowork_s3_label: "cowork-dev"
+-cowork_data_storage_class: "juicefs-sc"
+-block_volume_storage_class: "topolvm-csi"
+-cowork_data_size: "100Gi"
+-cowork_subdomain: "cowork-dev-loadtest-01"
+-llm_model_name: "gigachat-qwen-3.8"
+-
+-admin_email: ""
+-
+-autosync: true
+-
+-mimir_evals: true
+-
+-meta:
+-  status: "active"

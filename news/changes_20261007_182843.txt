@@ -1,0 +1,640 @@
+Изменения от 2026-10-07 18:28:43.356140
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0052/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0052/config.yaml
+index fd606c80f..7744ec7f2 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0052/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0052/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0052
+ cowork_s3_label: cowork-st02-0052
+-cowork_subdomain: cowork-st02-0052
++cowork_subdomain: dks
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: bezrukov.mi@dks-it.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '3300005372'
++  expiry_date: '2026-10-14'
++  status: trial
++  id: e98e94e1-ba28-4600-83ba-e64933cee1fa
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0146/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0146/config.yaml
+index 814b8ea57..74d59e366 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0146/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0146/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0146
+ cowork_s3_label: cowork-st02-0146
+-cowork_subdomain: cowork-st02-0146
++cowork_subdomain: chuchuchu
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: serno90@yandex.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '420544189186'
++  expiry_date: '2026-10-14'
++  status: trial
++  id: 57897527-3734-4313-af95-a27d3b7836d2
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0047/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0047/config.yaml
+index dd3cc3917..2a43b6d01 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0047/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0047/config.yaml
+@@ -12,5 +12,5 @@ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+-occupied: true
++occupied: false
+ autosync: true
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0060/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0060/config.yaml
+index f54935d27..944daa310 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0060/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0060/config.yaml
+@@ -13,5 +13,5 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+ 
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0119/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0119/config.yaml
+index 372f65c6a..9a4b251b3 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0119/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0119/config.yaml
+@@ -12,5 +12,5 @@ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+-occupied: true
++occupied: false
+ autosync: true
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0183/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0183/config.yaml
+index 141468ae6..f1b8bf6b3 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0183/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0183/config.yaml
+@@ -13,5 +13,5 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+ 
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0185/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0185/config.yaml
+index b562c2952..ac6bf78d0 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0185/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0185/config.yaml
+@@ -12,5 +12,5 @@ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+-occupied: true
++occupied: false
+ autosync: true
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0437/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0437/config.yaml
+index 823e5ef3b..409f82996 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0437/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0437/config.yaml
+@@ -12,6 +12,6 @@ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+-occupied: true
++occupied: false
+ autosync: true
+ 
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0448/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0448/config.yaml
+index dced3bb8e..4ec5e6115 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0448/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0448/config.yaml
+@@ -14,4 +14,4 @@ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+ 
+ cowork_subdomain: cowork-tb01-0448
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0452/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0452/config.yaml
+index cf574e998..60e4f6d7f 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0452/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0452/config.yaml
+@@ -13,4 +13,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0454/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0454/config.yaml
+index f61b2d152..fe5d46081 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0454/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0454/config.yaml
+@@ -14,4 +14,4 @@ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+ 
+ cowork_subdomain: cowork-tb01-0454
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0457/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0457/config.yaml
+index 88d447b3b..93911fcc0 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0457/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0457/config.yaml
+@@ -14,4 +14,4 @@ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+ 
+ cowork_subdomain: cowork-tb01-0457
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0496/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0496/config.yaml
+index 4ce12f05e..8657af193 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0496/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0496/config.yaml
+@@ -14,5 +14,5 @@ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+ 
+ cowork_subdomain: cowork-tb01-0496
+-occupied: true
++occupied: false
+ 
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0548/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0548/config.yaml
+index b88df2dc9..e20dd7cdd 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0548/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0548/config.yaml
+@@ -15,5 +15,5 @@ autosync: true
+ 
+ cowork_subdomain: cowork-tb01-0548
+ 
+-occupied: true
++occupied: false
+ 
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0563/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0563/config.yaml
+index 7fd181b2a..85e297d71 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0563/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0563/config.yaml
+@@ -13,5 +13,5 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+ 
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0629/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0629/config.yaml
+index 51f9823eb..91350bd33 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0629/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0629/config.yaml
+@@ -14,4 +14,4 @@ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+ 
+ cowork_subdomain: cowork-tb01-0629
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0822/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0822/config.yaml
+index de9513311..d1aa030d3 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0822/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0822/config.yaml
+@@ -13,5 +13,5 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+ 
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0825/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0825/config.yaml
+index 3bd6ddf33..287040d57 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0825/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0825/config.yaml
+@@ -13,5 +13,5 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+ 
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0826/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0826/config.yaml
+index 837ffe90c..73a691c7b 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0826/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0826/config.yaml
+@@ -19,6 +19,6 @@ trial: false
+ bootstrap: true
+ meta:
+   inn: '2635133470'
+-  expiry_date: '2026-10-06'
++  expiry_date: '2026-10-16'
+   id: f0069f88-a2b1-4805-a860-ce8f62faf508
+   status: grace
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0839/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0839/config.yaml
+index c1db3d05e..da9cda55f 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0839/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0839/config.yaml
+@@ -14,4 +14,4 @@ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+ 
+ cowork_subdomain: cowork-tb01-0839
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0872/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0872/config.yaml
+index 3557fc7bf..935f675de 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0872/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0872/config.yaml
+@@ -14,4 +14,4 @@ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+ 
+ cowork_subdomain: cowork-tb01-0872
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0013/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0013/config.yaml
+index d07e7f936..52aa454c1 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0013/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0013/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0015/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0015/config.yaml
+index 34919b8c2..54f24871f 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0015/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0015/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0017/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0017/config.yaml
+index 1bdb5fd48..89846cb2a 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0017/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0017/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0018/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0018/config.yaml
+index 6dd9a2235..1cf8e8684 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0018/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0018/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0020/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0020/config.yaml
+index dbb2bc054..5c1f96ad4 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0020/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0020/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0022/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0022/config.yaml
+index 04f25716d..9d76f7cd0 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0022/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0022/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0023/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0023/config.yaml
+index b8f538eea..638262be8 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0023/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0023/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0024/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0024/config.yaml
+index 37fd94dd3..27abc7f06 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0024/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0024/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0026/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0026/config.yaml
+index be944d141..74d07fec0 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0026/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0026/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0028/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0028/config.yaml
+index 598f4d9e3..024706d85 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0028/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0028/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0029/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0029/config.yaml
+index e1eb3a959..2a0d69760 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0029/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0029/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0030/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0030/config.yaml
+index 3953cd8cc..d2633f0d3 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0030/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0030/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0031/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0031/config.yaml
+index 9e742cc2f..b9b8a840a 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0031/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0031/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0032/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0032/config.yaml
+index 5f8b2ecc2..c12061d21 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0032/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0032/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0033/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0033/config.yaml
+index 56eab13ba..ccf98d40a 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0033/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0033/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0034/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0034/config.yaml
+index c40e86c09..7d7f3cf74 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0034/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0034/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0035/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0035/config.yaml
+index eb74acabd..ad7aa9b72 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0035/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0035/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0036/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0036/config.yaml
+index d93995d57..017deedd1 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0036/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0036/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0037/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0037/config.yaml
+index 7ae5926df..54c11e76d 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0037/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0037/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0039/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0039/config.yaml
+index 9a2b92b43..fb954912d 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0039/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0039/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0042/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0042/config.yaml
+index cab086519..5a5a529c5 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0042/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0042/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0043/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0043/config.yaml
+index 2192bb4f1..d7eb5b466 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0043/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0043/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0047/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0047/config.yaml
+index 6ddf78f14..383fa936e 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0047/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0047/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0048/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0048/config.yaml
+index 28223ae4c..525ea01ff 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0048/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0048/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0064/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0064/config.yaml
+index 8ef6a4460..2bafe2bf3 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0064/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0064/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0156/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0156/config.yaml
+index cc059028c..00c808ffe 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0156/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0156/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: csi-sfsturbo-subpath-0
+ cowork_data_size: 40Gi
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0175/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0175/config.yaml
+index 515e148d2..91e7c3a00 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0175/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0175/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0176/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0176/config.yaml
+index 1691fac04..054047c73 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0176/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0176/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0177/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0177/config.yaml
+index 0c547e392..47dec0755 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0177/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0177/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0181/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0181/config.yaml
+index e7d4a0208..4a2745315 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0181/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0181/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0190/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0190/config.yaml
+index b5012983c..c83d00b19 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0190/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0190/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0244/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0244/config.yaml
+index 6cdf76f49..98d7f65c0 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0244/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0244/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0424/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0424/config.yaml
+index 7dc8ba0b9..05f48813b 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0424/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0424/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: csi-sfsturbo-subpath-0
+ cowork_data_size: 40Gi
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0425/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0425/config.yaml
+index 74e986a6a..53b25141d 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0425/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0425/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: csi-sfsturbo-subpath-0
+ cowork_data_size: 40Gi
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0426/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0426/config.yaml
+index b52756003..276a3f0dc 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0426/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0426/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0427/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0427/config.yaml
+index a602912a7..c6d02eb4c 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0427/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0427/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: csi-sfsturbo-subpath-0
+ cowork_data_size: 40Gi
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0428/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0428/config.yaml
+index 64eed0308..568c2bc6e 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0428/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0428/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: csi-sfsturbo-subpath-0
+ cowork_data_size: 40Gi
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0454/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0454/config.yaml
+index cce8d222b..04803ab76 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0454/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0454/config.yaml
+@@ -11,4 +11,4 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: true
++occupied: false

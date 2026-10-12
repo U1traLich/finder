@@ -1,0 +1,13 @@
+Изменения от 2026-10-09 18:22:21.638687
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0422/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0422/config.yaml
+index 008e4cdcc..b0109d707 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0422/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0422/config.yaml
+@@ -18,5 +18,5 @@ trial: false
+ meta:
+   id: e470188b-55ee-43ee-b552-b5a457fc78a1
+   status: grace
+-  expiry_date: '2026-10-15'
++  expiry_date: '2026-10-25'
+   inn: '1433000147'

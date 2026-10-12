@@ -64,7 +64,7 @@ def open_file(path):
         webbrowser.open(Path(path).resolve().as_uri())
 
 # --- Версия ---
-VERSION = "v4.1.2"
+VERSION = "v4.2.0"
 # Единый таймаут ожидания ввода для всех меню (секунды)
 INPUT_TIMEOUT = 300
 
@@ -835,7 +835,7 @@ def _import_openpyxl():
         print_info("Установите вручную: python -m pip install openpyxl")
         return None
 TOKENS_DIR_NAME = "tokens"
-TOKENS_SOURCE_FILE = "Утилизация токены ПВБ.xlsx"
+TOKENS_SOURCE_FILE = "tokens.xlsx"
 def _build_subdomain_to_stand(repo_root, zones):
     """Маппинг cowork_subdomain → stand_name по всем конфигам зон репозитория."""
     mapping = {}
@@ -859,6 +859,28 @@ def _build_subdomain_to_stand(repo_root, zones):
             else:
                 mapping[key] = stand
     return mapping, conflicts
+
+
+def _build_inn_to_stand(repo_root, zones):
+    """Маппинг ИНН → stand_name по всем конфигам зон репозитория (fallback)."""
+    mapping = {}
+    for zone in zones:
+        base = repo_root / zone["path"]
+        if not base.exists():
+            continue
+        prefixes = tuple(zone.get("stand_prefixes", ("cowork-",)))
+        for config_path in base.rglob(CONFIG):
+            if not config_path.parent.name.startswith(prefixes):
+                continue
+            data = read_config(config_path)
+            inn = data.get("inn")
+            stand = data.get("stand_name")
+            if not inn or not stand:
+                continue
+            key = inn.strip()
+            if key not in mapping:
+                mapping[key] = stand
+    return mapping
 def _token_utilization_sql(stands, days):
     """Один запрос на все стенды: GROUP BY environment, чтобы результат раскидать по строкам."""
     quoted = ", ".join(f"'{s}'" for s in stands)
@@ -898,6 +920,152 @@ def _parse_ch_env_output(raw_lines):
         result[env_name.strip()] = (calls, inp, outp, tot)
     return result
 TOKENS_RESULT_FILE = "результат clickhouse.txt"
+TOKENS_USERS_RESULT_FILE = "результат пользователи.txt"
+
+_LIST_USERS_HEREDOC = """/app/services/auth/.venv/bin/python <<'PY'
+import asyncio, sys, httpx
+from datetime import datetime, timezone
+try:
+    from auth_service.bootstrap.config import get_settings
+except ModuleNotFoundError:
+    from auth_service.config import get_settings
+
+async def main():
+    settings = get_settings()
+    base_url = settings.provider_issuer_url.split("/realms/")[0]
+    realm = settings.provider_realm
+
+    async with httpx.AsyncClient() as http:
+        token_resp = await http.post(
+            f"{base_url}/realms/{realm}/protocol/openid-connect/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": settings.provider_client_id,
+                "client_secret": settings.provider_client_secret,
+            },
+        )
+        token_resp.raise_for_status()
+        access_token = token_resp.json()["access_token"]
+
+        all_users = []
+        first = 0
+        page_size = 100
+        while True:
+            resp = await http.get(
+                f"{base_url}/admin/realms/{realm}/users",
+                params={"first": first, "max": page_size},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            resp.raise_for_status()
+            users = resp.json()
+            if not users:
+                break
+            all_users.extend(users)
+            if len(users) < page_size:
+                break
+            first += page_size
+
+    all_users.sort(key=lambda u: u.get("email", "").lower())
+    print(f"Total: {len(all_users)}")
+    print()
+    for u in all_users:
+        email = u.get("email", "—")
+        name = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip() or "—"
+        uid = u.get("id", "—")
+        status = "active" if u.get("enabled") else "disabled"
+        ts = u.get("createdTimestamp")
+        created = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d") if ts else "—"
+        print(f"{email}  |  {name}  |  {status}  |  created={created}  |  id={uid}")
+
+asyncio.run(main())
+PY"""
+
+
+def _build_stand_to_zone(repo_root, zones):
+    """Маппинг stand_name → zone_dict (для открытия правильного ArgoCD-пода).
+    Возвращает dict с ключами code, app_template, argocd_base."""
+    mapping = {}
+    # Lookup: label (из zones_config) → code (из WORKSPACE_ZONES).
+    code_by_label = {z["cluster"]: z["code"] for z in WORKSPACE_ZONES}
+    for zone in zones:
+        base = repo_root / zone["path"]
+        if not base.exists():
+            continue
+        prefixes = tuple(zone.get("stand_prefixes", ("cowork-",)))
+        code = code_by_label.get(zone.get("label", ""), "")
+        zone_for_exec = {
+            "code": code,
+            "app_template": zone.get("app_template"),
+            "argocd_base": zone.get("argocd_base"),
+        }
+        for config_path in base.rglob(CONFIG):
+            if not config_path.parent.name.startswith(prefixes):
+                continue
+            data = read_config(config_path)
+            stand = data.get("stand_name")
+            if stand and stand not in mapping:
+                mapping[stand] = zone_for_exec
+    return mapping
+
+
+def _parse_users_output(raw_text):
+    """Из вывода скрипта подсчёта пользователей извлекает число пользователей.
+    Ищет строку вида 'Total: N'. ANSI-коды отбрасываются перед поиском.
+    Возвращает int или None."""
+    import re
+    # Убираем ANSI-escape последовательности (веб-терминал ArgoCD добавляет подсветку)
+    clean = re.sub(r"\x1b\[[0-9;]*m", "", raw_text)
+    m = re.search(r"Total:\s*(\d+)", clean)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _count_users_for_stands(stands, stand_to_zone, tokens_dir):
+    """По очереди открывает heimdall-под для каждого стенда, принимает результат.
+    Скрипт сохраняется в exec/ один раз перед циклом.
+    Возвращает dict: stand_name → int (число пользователей)."""
+    users_by_env = {}
+    result_path = tokens_dir / TOKENS_USERS_RESULT_FILE
+    # Сохраняем скрипт в exec/ один раз — он одинаковый для всех стендов.
+    EXEC_DIR.mkdir(parents=True, exist_ok=True)
+    script_path = EXEC_DIR / "list_users.sh"
+    script_path.write_text(_LIST_USERS_HEREDOC, encoding="utf-8")
+    print_info(f"Скрипт сохранён: {script_path}")
+    for idx, stand in enumerate(stands, 1):
+        zone = stand_to_zone.get(stand)
+        if zone is None:
+            print_warn(f"Зона не найдена для стенда {stand} — пропускаю.")
+            continue
+        print_divider()
+        print_info(f"Стенд {idx}/{len(stands)}: {stand}")
+        open_pod_exec(zone["code"], stand, "heimdall", zone.get("app_template"), zone.get("argocd_base"))
+        print_info(f"Скопируйте содержимое {script_path.name} целиком в веб-терминал пода и запустите.")
+        result_path.write_text("", encoding="utf-8")
+        print_info(f"Скопируйте вывод команды в файл: {result_path}")
+        answer = input(f"{action_label()} Заполнили файл? (yes/no/skip, Enter — yes): ").strip().lower()
+        if answer == "skip":
+            print_warn(f"Пропущен стенд {stand}.")
+            continue
+        if answer in ("n", "no"):
+            print_warn("Операция отменена.")
+            break
+        try:
+            raw = result_path.read_text(encoding="utf-8")
+        except OSError as error:
+            print_error(f"Не удалось прочитать файл: {error}")
+            continue
+        count = _parse_users_output(raw)
+        if count is None:
+            print_warn(f"Не удалось разобрать результат для {stand}: строка «Total: N» не найдена.")
+            answer2 = input_with_timeout(f"{action_label()} Повторить? (yes/no/skip): ", INPUT_TIMEOUT)
+            if answer2 and answer2.strip().lower() in ("y", "yes"):
+                continue
+            print_warn(f"Пропущен стенд {stand}.")
+            continue
+        users_by_env[stand] = count
+        print_info(f"Пользователей на {stand}: {_fmt_int(count)}")
+    return users_by_env
 def _read_result_file(result_path):
     """Строки результата из промежуточного файла; пропуская служебные строки
     веб-терминала (root@..., #, $, эхо команды) и пустые."""
@@ -915,8 +1083,9 @@ def _read_result_file(result_path):
             continue
         lines.append(line.rstrip())
     return lines
-def _write_token_report_xlsx(src_path, out_path, mapping, totals_by_env, days):
-    """Копирует исходную таблицу и заполняет столбец K аналитикой по токенам.
+def _write_token_report_xlsx(src_path, out_path, row_stands, totals_by_env, days, users_by_env=None):
+    """Копирует исходную таблицу и заполняет столбец D аналитикой по токенам.
+    row_stands — список stand_name (или None), выровненный по видимым непустым строкам.
     Обрабатывает ТОЛЬКО видимые (развернутые) строки; свернутые (hidden) — не трогает."""
     openpyxl = _import_openpyxl()
     if openpyxl is None:
@@ -924,16 +1093,20 @@ def _write_token_report_xlsx(src_path, out_path, mapping, totals_by_env, days):
     wb = openpyxl.load_workbook(str(src_path))
     ws = wb[wb.sheetnames[0]]
     filled = no_data = missing = skipped_hidden = 0
+    idx = 0
     for row in range(2, ws.max_row + 1):
-        # Свернутая строка — пропускаем целиком, ячейку K не трогаем.
+        # Свернутая строка — пропускаем целиком, ячейку D не трогаем.
         if ws.row_dimensions[row].hidden:
             skipped_hidden += 1
             continue
         cell_a = ws.cell(row=row, column=1).value
-        if cell_a is None or str(cell_a).strip() == "":
+        cell_b = ws.cell(row=row, column=2).value
+        a_empty = cell_a is None or str(cell_a).strip() == ""
+        b_empty = cell_b is None or str(cell_b).strip() == ""
+        if a_empty and b_empty:
             continue
-        sub = str(cell_a).strip()
-        stand = mapping.get(sub.lower())
+        stand = row_stands[idx] if idx < len(row_stands) else None
+        idx += 1
         if stand is None:
             text = "Не найден в конфигурациях репозитория"
             missing += 1
@@ -942,12 +1115,15 @@ def _write_token_report_xlsx(src_path, out_path, mapping, totals_by_env, days):
             no_data += 1
         else:
             calls, inp, outp, tot = totals_by_env[stand]
-            text = (f"Вызовов LLM: {_fmt_int(calls)}\n"
-                    f"Потрачено за период: {_fmt_int(tot)} токенов\n"
-                    f"  запрос к модели (input):   {_fmt_int(inp)}\n"
-                    f"  ответ модели (output):     {_fmt_int(outp)}")
+            parts = [f"Вызовов LLM: {_fmt_int(calls)}"]
+            if users_by_env and stand in users_by_env:
+                parts.append(f"Пользователей: {_fmt_int(users_by_env[stand])}")
+            parts.append(f"Потрачено за период: {_fmt_int(tot)} токенов")
+            parts.append(f"  запрос к модели (input):   {_fmt_int(inp)}")
+            parts.append(f"  ответ модели (output):     {_fmt_int(outp)}")
+            text = "\n".join(parts)
             filled += 1
-        cell = ws.cell(row=row, column=11, value=text)
+        cell = ws.cell(row=row, column=4, value=text)
         cell.alignment = openpyxl.styles.Alignment(wrap_text=True, vertical="top")
     wb.save(str(out_path))
     return filled, no_data, missing, skipped_hidden
@@ -988,18 +1164,25 @@ def token_utilization_report(repo_root, script_dir, zones):
         wb = openpyxl.load_workbook(str(src))
         ws = wb[wb.sheetnames[0]]
         subs = []
+        inns = []
         for row in range(2, ws.max_row + 1):
             if ws.row_dimensions[row].hidden:
                 continue
-            v = ws.cell(row=row, column=1).value
-            if v is not None and str(v).strip():
-                subs.append(str(v).strip())
+            v_a = ws.cell(row=row, column=1).value
+            v_b = ws.cell(row=row, column=2).value
+            a = str(v_a).strip() if v_a is not None else ""
+            b = str(v_b).strip() if v_b is not None else ""
+            # Строка участвует, если заполнен хотя бы один критерий: subdomain (A) или ИНН (B).
+            if not a and not b:
+                continue
+            subs.append(a)
+            inns.append(b)
         wb.close()
     except Exception as error:
         print_error(f"Не удалось прочитать файл: {error}")
         return
     if not subs:
-        print_error("В столбце A (Название) нет ни одного subdomain.")
+        print_error("В таблице нет ни одного subdomain (столбец A) или ИНН (столбец B).")
         return
     print_info(f"Видимых (развернутых) строк в таблице: {len(subs)}, уникальных subdomain: {len(set(s.lower() for s in subs))}.")
     # Период — как в пункте 8.
@@ -1021,19 +1204,27 @@ def token_utilization_report(repo_root, script_dir, zones):
     else:
         print_warn("Неверный период, операция отменена.")
         return
-    # Маппинг subdomain → stand_name (environment в ClickHouse) по конфигам репозитория.
-    print_info("Собираю маппинг subdomain → stand_name из конфигураций репозитория...")
+    # Маппинг subdomain → stand_name и ИНН → stand_name по конфигам репозитория.
+    print_info("Собираю маппинг из конфигураций репозитория...")
     mapping, conflicts = _build_subdomain_to_stand(repo_root, zones)
+    inn_mapping = _build_inn_to_stand(repo_root, zones)
     if conflicts:
         print_warn(f"Обратите внимание: {conflicts} конфликт(а) — один subdomain встречается в разных стендах; взят первый.")
-    known = [s for s in dict.fromkeys(subs) if s.lower() in mapping]
-    unknown_count = len(dict.fromkeys(subs)) - len(known)
-    stands = list(dict.fromkeys(mapping[s.lower()] for s in known))
-    print_info(f"Соответствие найдено для {len(known)} subdomain ({len(stands)} стендов).")
-    if unknown_count:
-        print_warn(f"Не найдено в конфигурациях: {unknown_count} subdomain — для них в столбце K будет пометка.")
+    # Разрешаем каждую строку: сначала по subdomain (A), затем по ИНН (B).
+    row_stands = []
+    for sub, inn in zip(subs, inns):
+        stand = mapping.get(sub.lower())
+        if stand is None and inn:
+            stand = inn_mapping.get(inn)
+        row_stands.append(stand)
+    stands = list(dict.fromkeys(s for s in row_stands if s))
+    resolved = sum(1 for s in row_stands if s)
+    print_info(f"Соответствие найдено для {resolved}/{len(subs)} строк ({len(stands)} стендов).")
+    unresolved = len(subs) - resolved
+    if unresolved:
+        print_warn(f"Не найдено в конфигурациях: {unresolved} строк — для них будет пометка.")
     if not stands:
-        print_error("Ни один subdomain из таблицы не найден в конфигурациях репозитория.")
+        print_error("Ни одна строка из таблицы не найдена в конфигурациях репозитория (по subdomain и ИНН).")
         return
     sql = _token_utilization_sql(stands, days)
     ch_app_url = ("https://argocd-tb01.cowork.ru/applications/langfuse/langfuse"
@@ -1047,8 +1238,8 @@ def token_utilization_report(repo_root, script_dir, zones):
     print(colorize(f"clickhouse-client --query \"{sql}\"", CYAN))
     print()
     print_info(f"Скопируйте весь вывод команды в файл: {result_path}")
-    answer = input_with_timeout(f"{action_label()} Заполнили файл? (yes/no): ", INPUT_TIMEOUT)
-    if answer is None or answer.strip().lower() not in ("y", "yes"):
+    answer = input(f"{action_label()} Заполнили файл? (yes/no, Enter — yes): ").strip().lower()
+    if answer in ("n", "no"):
         print_warn("Операция отменена.")
         return
     lines = _read_result_file(result_path)
@@ -1065,10 +1256,21 @@ def token_utilization_report(repo_root, script_dir, zones):
     else:
         matched = sum(1 for s in stands if s in totals_by_env)
         print_info(f"Разобрано результатов по {len(totals_by_env)} стендам, из запрошенных {len(stands)} найдено {matched}.")
+    # Опциональный шаг: подсчёт пользователей на каждом стенде через heimdall-auth.
+    # Считаем только для стендов, где были вызовы LLM (есть данные в ClickHouse).
+    users_by_env = {}
+    active_stands = [s for s in stands if s in totals_by_env]
+    if active_stands:
+        print_info(f"Подсчёт пользователей по {len(active_stands)} стендам с данными...")
+        stand_to_zone = _build_stand_to_zone(repo_root, zones)
+        users_by_env = _count_users_for_stands(active_stands, stand_to_zone, tokens_dir)
+        if users_by_env:
+            total_users = sum(users_by_env.values())
+            print_info(f"Итого пользователей по всем стендам: {_fmt_int(total_users)}.")
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
     out_path = tokens_dir / f"Подсчет утилизации_{stamp}.xlsx"
     try:
-        filled, no_data, missing, skipped_hidden = _write_token_report_xlsx(src, out_path, mapping, totals_by_env, days)
+        filled, no_data, missing, skipped_hidden = _write_token_report_xlsx(src, out_path, row_stands, totals_by_env, days, users_by_env)
     except Exception as error:
         print_error(f"Не удалось сохранить Excel: {error}")
         return
@@ -1199,7 +1401,7 @@ def _print_stand(idx, data):
         print(f"   status: {colorize(data['status'], _status_color(data['status']))}")
     print(f"   cowork_revision: {data.get('cowork_revision', 'N/A')}")
     if data.get("broken"):
-        print("   [broken stand]")
+        print(f"   {colorize('[broken stand]', RED)}")
 
 
 def select_stand(results):
@@ -3202,8 +3404,8 @@ def stand_action_menu(selected, script_dir):
         print("  5. Открыть конфигурацию стенда")
         print("  6. Управление пространствами")
         print("  7. Починить роли на стенде")
-        print("  8. Токены LLM")
-        print("  9. Создать аккаунты")
+        print("  8. Токены LLM (ClickHouse)")
+        print("  9. Создать аккаунты (Excel с email/password)")
         print("  10. Сброс зависших сессий")
         print("  0. Вернуться к поиску")
         print()

@@ -1,0 +1,24 @@
+Изменения от 2026-10-06 15:25:33.758981
+========================================
+diff --git a/dev/cowork/stands/cowork-dev-dvps-01/config.yaml b/dev/cowork/stands/cowork-dev-dvps-01/config.yaml
+deleted file mode 100644
+index 19f957362..000000000
+--- a/dev/cowork/stands/cowork-dev-dvps-01/config.yaml
++++ /dev/null
+@@ -1,16 +0,0 @@
+-stand_name: "cowork-dev-dvps-01"
+-cowork_revision: "master"
+-argocd_shard: "1"
+-# stand_node_label: "cowork-dev-06"
+-stand_node_label: "cowork"
+-cowork_s3_label: "cowork-dev"
+-cowork_data_storage_class: "juicefs-sc"
+-block_volume_storage_class: "topolvm-csi"
+-cowork_data_size: "100Gi"
+-cowork_subdomain: "cowork-dev-dvps-01"
+-llm_model_name: "guardrails-qwen"
+-llm_api_base_url: "http://litellm:4000"
+-admin_email: ""
+-autosync: false
+-meta:
+-  status: "active"

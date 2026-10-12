@@ -1,0 +1,146 @@
+Изменения от 2026-10-07 11:47:40.245364
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0356/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0356/config.yaml
+index 8e93f1195..517032ef0 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0356/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0356/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0356
+ cowork_s3_label: cowork-st02-0356
+-cowork_subdomain: cowork-st02-0356
++cowork_subdomain: desob-test14
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: desoboton@gmail.com
++bootstrap: true
++trial: true
++meta:
++  inn: '9731081072'
++  expiry_date: '2026-10-14'
++  status: trial
++  id: 02bbb174-6c7a-44e3-876b-acb58b707920
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0357/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0357/config.yaml
+index 3076a14d9..e462f511e 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0357/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0357/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0357
+ cowork_s3_label: cowork-st02-0357
+-cowork_subdomain: cowork-st02-0357
++cowork_subdomain: vist
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: elenag-std@mail.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '0317006146'
++  expiry_date: '2026-10-14'
++  status: trial
++  id: 9dac16b2-1d39-4d4b-8925-47271a0b8fe6
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0358/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0358/config.yaml
+index a617df0f4..34a58b1c3 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0358/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0358/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0358
+ cowork_s3_label: cowork-st02-0358
+-cowork_subdomain: cowork-st02-0358
++cowork_subdomain: ivanvolco
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: 4uf@list.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '6670396782'
++  expiry_date: '2026-10-14'
++  status: trial
++  id: 567107ab-9991-4e64-91eb-6845b7dfbd75
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0366/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0366/config.yaml
+index f4cdda191..e691f8445 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0366/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0366/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0366
+ cowork_s3_label: cowork-st02-0366
+-cowork_subdomain: cowork-st02-0366
++cowork_subdomain: isa
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: polizhaevskiy@industrialsystems.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '5504022980'
++  expiry_date: '2026-10-14'
++  status: trial
++  id: 0f775fb3-4776-4f31-bab5-e7733c00a282
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0051/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0051/config.yaml
+index 36a4ed4cd..9b91faad2 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0051/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0051/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb04-0051"
+ cowork_s3_label: "cowork-tb04-0051"
+-cowork_subdomain: "cowork-tb04-0051"
++cowork_subdomain: "praktikum"
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+diff --git a/dev/cowork/stands/cowork-dev-int-team-02/config.yaml b/dev/cowork/stands/cowork-dev-int-team-02/config.yaml
+index 0efd18828..4ad5f53b6 100644
+--- a/dev/cowork/stands/cowork-dev-int-team-02/config.yaml
++++ b/dev/cowork/stands/cowork-dev-int-team-02/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-int-team-02"
+-cowork_revision: "feature/SDBPROD-1949/albato-to-catalog"
++cowork_revision: "feature/SDBPROD-1617/exchange"
+ argocd_shard: "1"
+ stand_node_label: "cowork"
+ cowork_s3_label: "cowork-dev"
+diff --git a/stage/cowork/stands/cowork-load-test-2/config.yaml b/stage/cowork/stands/cowork-load-test-2/config.yaml
+index cf554dfc5..ef544f221 100644
+--- a/stage/cowork/stands/cowork-load-test-2/config.yaml
++++ b/stage/cowork/stands/cowork-load-test-2/config.yaml
+@@ -1,6 +1,6 @@
+ stand_name: "cowork-load-test-2"
+ argocd_shard: "1"
+-stand_node_label: "load-test"
++stand_node_label: "cowork"
+ cowork_s3_label: "cowork-stage-02"
+ cowork_data_storage_class: "cowork-load-test-2-juicefs-sc"
+ block_volume_storage_class: "topolvm-csi"

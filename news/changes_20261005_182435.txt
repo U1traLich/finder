@@ -1,0 +1,39 @@
+Изменения от 2026-10-05 18:24:35.371702
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0436/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0436/config.yaml
+index 030c6f905..d8fc919c0 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0436/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0436/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0436
+ cowork_s3_label: cowork-st02-0436
+-cowork_subdomain: nenevatom
++cowork_subdomain: nevatom
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+diff --git a/dev/cowork/stands/cowork-dev-int-team-03/config.yaml b/dev/cowork/stands/cowork-dev-int-team-03/config.yaml
+index 44f1eda36..82985e8f4 100644
+--- a/dev/cowork/stands/cowork-dev-int-team-03/config.yaml
++++ b/dev/cowork/stands/cowork-dev-int-team-03/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-int-team-03"
+-cowork_revision: "feature/SDBPROD-1250/yandex-360-connectors"
++cowork_revision: "release/26.09.4"
+ argocd_shard: "1"
+ stand_node_label: "cowork"
+ cowork_s3_label: "cowork-dev"
+diff --git a/stage/cowork/stands/cowork-load-test-1/config.yaml b/stage/cowork/stands/cowork-load-test-1/config.yaml
+index 63092bcaa..13dd58308 100644
+--- a/stage/cowork/stands/cowork-load-test-1/config.yaml
++++ b/stage/cowork/stands/cowork-load-test-1/config.yaml
+@@ -16,7 +16,7 @@ mimir:
+ 
+ cowork_subdomain: "load-test-1"
+ e2e_probe: true
+-cowork_revision: "release/26.09.3"
++cowork_revision: "release/26.09.4"
+ llm_model_name: "cowork-pro"
+ llm_api_base_url: "http://litellm:4000"
+ 

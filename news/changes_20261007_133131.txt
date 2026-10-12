@@ -1,0 +1,346 @@
+Изменения от 2026-10-07 13:31:31.157089
+========================================
+diff --git a/cce-prod-tb01/infra/dashboard/dashboard-argocd.yaml b/cce-prod-tb01/infra/dashboard/dashboard-argocd.yaml
+index d1db14c5a..2d667d5c9 100644
+--- a/cce-prod-tb01/infra/dashboard/dashboard-argocd.yaml
++++ b/cce-prod-tb01/infra/dashboard/dashboard-argocd.yaml
+@@ -56,6 +56,7 @@ spec:
+         namespace: dashboard
+       syncPolicy:
+         automated:
++          enabled: true
+           selfHeal: true
+           prune: true
+         syncOptions:
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0369/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0369/config.yaml
+index 47f1d790b..4b76a59a5 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0369/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0369/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0369
+ cowork_s3_label: cowork-st02-0369
+-cowork_subdomain: cowork-st02-0369
++cowork_subdomain: bbcteplovizor
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: denis.piskunov@bbc-teplovizor.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '7811605874'
++  expiry_date: '2026-10-14'
++  status: trial
++  id: 789511fe-25d7-40a3-a2bc-90b56be387f6
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0370/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0370/config.yaml
+index 7bf556529..ee42bae5e 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0370/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0370/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0370
+ cowork_s3_label: cowork-st02-0370
+-cowork_subdomain: cowork-st02-0370
++cowork_subdomain: andorfinn
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: roaster@barneo.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '263602872576'
++  expiry_date: '2026-10-14'
++  status: trial
++  id: e039548a-594a-4c92-b712-67b09c8803ef
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0371/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0371/config.yaml
+index 18fcba23b..74fcc1352 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0371/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0371/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0371
+ cowork_s3_label: cowork-st02-0371
+-cowork_subdomain: cowork-st02-0371
++cowork_subdomain: bashkirenergo
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: ai@bashkirenergo.ru
++bootstrap: true
++trial: false
++meta:
++  inn: '0276143694'
++  expiry_date: '2026-10-21'
++  status: grace
++  id: 3724051d-3008-4804-a70a-284d52bef8c7
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0372/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0372/config.yaml
+index b7c7ba13f..55235bbb7 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0372/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0372/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0372
+ cowork_s3_label: cowork-st02-0372
+-cowork_subdomain: cowork-st02-0372
++cowork_subdomain: desob-test15
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: desoboton@gmail.com
++bootstrap: true
++trial: true
++meta:
++  inn: '9731081072'
++  expiry_date: '2026-11-06'
++  status: trial
++  id: c7ffb77f-7781-415f-998b-e39fa1f4faa8
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0375/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0375/config.yaml
+index 8e005a4b7..e4852f954 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0375/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0375/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0375
+ cowork_s3_label: cowork-st02-0375
+-cowork_subdomain: cowork-st02-0375
++cowork_subdomain: artbox455
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: grishaeve@gmail.com
++bootstrap: true
++trial: true
++meta:
++  inn: '9713018110'
++  expiry_date: '2026-11-06'
++  status: trial
++  id: 1f0d4a41-36ad-4099-8939-663538822633
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0377/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0377/config.yaml
+index 4c87c3174..c9f78e03a 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0377/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0377/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0377
+ cowork_s3_label: cowork-st02-0377
+-cowork_subdomain: cowork-st02-0377
++cowork_subdomain: suhovskiy
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: fin.sh@mail.ru
++bootstrap: true
++trial: false
++meta:
++  inn: '4250000699'
++  expiry_date: '2026-10-21'
++  status: grace
++  id: ec1b02ab-bdb3-476b-bf58-058b6fd5cc0b
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0378/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0378/config.yaml
+index c6acd379b..16189e487 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0378/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0378/config.yaml
+@@ -3,7 +3,7 @@ monitoring_enabled: true
+ stand_node_label: "cowork"
+ stand_resource_prefix: cowork-st02-0378
+ cowork_s3_label: cowork-st02-0378
+-cowork_subdomain: cowork-st02-0378
++cowork_subdomain: luka
+ cowork_revision: "release/26.09.3"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -11,4 +11,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "gigachat-qwen-3.8"
+ autosync: true
+-occupied: false
++occupied: true
++admin_email: k.a.lukashenya@kitsolution.ru
++bootstrap: true
++trial: true
++meta:
++  inn: '1832146860'
++  expiry_date: '2026-10-14'
++  status: trial
++  id: 2ae31a14-242f-4557-84da-8919e6a83164
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0669/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0669/config.yaml
+index ccda10728..06dc82223 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0669/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0669/config.yaml
+@@ -22,3 +22,4 @@ meta:
+   expiry_date: '2026-10-16'
+   id: 8baa5bea-3655-4666-ad17-7203033361a0
+   status: grace
++  max_users: '30'
+diff --git a/cce-prod/infra/dashboard/dashboard-argocd.yaml b/cce-prod/infra/dashboard/dashboard-argocd.yaml
+index 8f6a304be..58f3e82a4 100644
+--- a/cce-prod/infra/dashboard/dashboard-argocd.yaml
++++ b/cce-prod/infra/dashboard/dashboard-argocd.yaml
+@@ -56,6 +56,7 @@ spec:
+         namespace: dashboard
+       syncPolicy:
+         automated:
++          enabled: true
+           selfHeal: true
+           prune: true
+         syncOptions:
+diff --git a/cce-sdb-tb01/infra/dashboard/dashboard-argocd.yaml b/cce-sdb-tb01/infra/dashboard/dashboard-argocd.yaml
+index 62515dc23..ec6c2736f 100644
+--- a/cce-sdb-tb01/infra/dashboard/dashboard-argocd.yaml
++++ b/cce-sdb-tb01/infra/dashboard/dashboard-argocd.yaml
+@@ -54,6 +54,7 @@ spec:
+         namespace: dashboard
+       syncPolicy:
+         automated:
++          enabled: true
+           selfHeal: true
+           prune: true
+         syncOptions:
+diff --git a/dev/cowork/stands/cowork-dev-01/config.yaml b/dev/cowork/stands/cowork-dev-01/config.yaml
+index e1d8387ff..f394e276b 100644
+--- a/dev/cowork/stands/cowork-dev-01/config.yaml
++++ b/dev/cowork/stands/cowork-dev-01/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-01"
+-cowork_revision: "master"
++cowork_revision: "release/26.09.4"
+ argocd_shard: "1"
+ stand_node_label: "cowork"
+ cowork_s3_label: "cowork-dev"
+diff --git a/dev/cowork/stands/cowork-dev-int-team-02/config.yaml b/dev/cowork/stands/cowork-dev-int-team-02/config.yaml
+index 4ad5f53b6..a99fce272 100644
+--- a/dev/cowork/stands/cowork-dev-int-team-02/config.yaml
++++ b/dev/cowork/stands/cowork-dev-int-team-02/config.yaml
+@@ -1,5 +1,5 @@
+ stand_name: "cowork-dev-int-team-02"
+-cowork_revision: "feature/SDBPROD-1617/exchange"
++cowork_revision: "master"
+ argocd_shard: "1"
+ stand_node_label: "cowork"
+ cowork_s3_label: "cowork-dev"
+diff --git a/dev/infra/dashboard/dashboard-argocd.yaml b/dev/infra/dashboard/dashboard-argocd.yaml
+index 65a92e8fc..253f62a0e 100644
+--- a/dev/infra/dashboard/dashboard-argocd.yaml
++++ b/dev/infra/dashboard/dashboard-argocd.yaml
+@@ -80,6 +80,7 @@ spec:
+         namespace: dashboard
+       syncPolicy:
+         automated:
++          enabled: true
+           selfHeal: true
+           prune: true
+         syncOptions:
+diff --git a/dev/infra/glitchtip/glitchtip-argocd.yaml b/dev/infra/glitchtip/glitchtip-argocd.yaml
+index 931d1fb03..8acaaa0c8 100755
+--- a/dev/infra/glitchtip/glitchtip-argocd.yaml
++++ b/dev/infra/glitchtip/glitchtip-argocd.yaml
+@@ -52,17 +52,16 @@ spec:
+                 enabled: true
+                 existingSecret: glitchtip-redis-auth
+                 existingSecretPasswordKey: password
+-              master:
+-                persistence:
+-                  enabled: true
+-                  storageClass: topolvm-csi
+-                  size: 5Gi
+-                resources:
+-                  requests:
+-                    cpu: 50m
+-                    memory: 128Mi
+-                  limits:
+-                    memory: 512Mi
++              persistence:
++                enabled: true
++                storageClass: topolvm-csi
++                size: 8Gi
++              resources:
++                requests:
++                  cpu: 50m
++                  memory: 128Mi
++                limits:
++                  memory: 1Gi
+               replica:
+                 replicaCount: 0
+         - repoURL: https://github.com/nixys/nxs-universal-chart.git
+diff --git a/dev/infra/langfuse/langfuse-argocd.yaml b/dev/infra/langfuse/langfuse-argocd.yaml
+index 82bf59179..3ec210f5e 100644
+--- a/dev/infra/langfuse/langfuse-argocd.yaml
++++ b/dev/infra/langfuse/langfuse-argocd.yaml
+@@ -57,17 +57,16 @@ spec:
+                 enabled: true
+                 existingSecret: langfuse-redis-auth
+                 existingSecretPasswordKey: password
+-              master:
+-                persistence:
+-                  enabled: true
+-                  storageClass: topolvm-csi
+-                  size: 5Gi
+-                resources:
+-                  requests:
+-                    cpu: 50m
+-                    memory: 128Mi
+-                  limits:
+-                    memory: 512Mi
++              persistence:
++                enabled: true
++                storageClass: topolvm-csi
++                size: 8Gi
++              resources:
++                requests:
++                  cpu: 50m
++                  memory: 128Mi
++                limits:
++                  memory: 512Mi
+               replica:
+                 replicaCount: 0
+         - repoURL: https://github.com/nixys/nxs-universal-chart.git
+diff --git a/stage/infra/dashboard/dashboard-argocd.yaml b/stage/infra/dashboard/dashboard-argocd.yaml
+index 550c68d7b..2ecae96f9 100644
+--- a/stage/infra/dashboard/dashboard-argocd.yaml
++++ b/stage/infra/dashboard/dashboard-argocd.yaml
+@@ -80,6 +80,7 @@ spec:
+         namespace: dashboard
+       syncPolicy:
+         automated:
++          enabled: true
+           selfHeal: true
+           prune: true
+         syncOptions:
