@@ -1,0 +1,1126 @@
+Изменения от 2026-10-14 15:16:48.151104
+========================================
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0016/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0016/config.yaml
+index dc937738e..db1abe8a2 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0016/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0016/config.yaml
+@@ -22,4 +22,4 @@ meta:
+   inn: '7729050901'
+   id: a022352f-2eb2-42a9-a847-c16429a997be
+   expiry_date: '2026-10-14'
+-  status: grace
++  status: expired
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0048/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0048/config.yaml
+index 006268813..2ce7b5150 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0048/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0048/config.yaml
+@@ -22,4 +22,4 @@ meta:
+   inn: '4629031018'
+   expiry_date: '2026-10-14'
+   id: d37245db-adae-4135-856f-5752c716538f
+-  status: grace
++  status: expired
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0052/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0052/config.yaml
+index 578636b57..e7d6f30db 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0052/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0052/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: bezrukov.mi@dks-it.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '3300005372'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: e98e94e1-ba28-4600-83ba-e64933cee1fa
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0146/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0146/config.yaml
+index eb61c2c58..b468005cb 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0146/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0146/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: serno90@yandex.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '420544189186'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 57897527-3734-4313-af95-a27d3b7836d2
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0156/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0156/config.yaml
+index 23ae3d1d0..39ab0ba0f 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0156/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0156/config.yaml
+@@ -19,4 +19,4 @@ meta:
+   id: 1ab2072f-a573-411c-b145-cc683d88a628
+   expiry_date: '2026-10-14'
+   inn: '0274991804'
+-  status: grace
++  status: expired
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0169/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0169/config.yaml
+index 2e90af20c..01f583085 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0169/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0169/config.yaml
+@@ -17,6 +17,6 @@ trial: false
+ admin_email: a.i.artemov@sozvezdie.su
+ meta:
+   status: grace
+-  expiry_date: '2026-10-07'
++  expiry_date: '2026-10-28'
+   inn: '3666127502'
+   id: 032c49aa-973a-4d89-8d7a-8cec736a35dc
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0170/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0170/config.yaml
+index 74108edc1..730df3577 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0170/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0170/config.yaml
+@@ -16,7 +16,7 @@ bootstrap: true
+ trial: false
+ admin_email: valentin.balyshev@upakovka38.ru
+ meta:
+-  status: grace
++  status: expired
+   expiry_date: '2026-10-14'
+   inn: '3810060620'
+   id: 3900baad-0e66-4a96-abdb-409328a07dfb
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0190/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0190/config.yaml
+index 9d8eb1a4f..0133fed0a 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0190/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0190/config.yaml
+@@ -13,10 +13,10 @@ llm_model_name: "cowork-pro"
+ autosync: true
+ occupied: true
+ bootstrap: true
+-trial: true
++trial: false
+ admin_email: aleksandr.makarov@petrusco.ru
+ meta:
+-  status: trial
+-  expiry_date: '2026-10-07'
++  status: grace
++  expiry_date: '2026-10-21'
+   inn: '7730682729'
+   id: 6837f96b-1c4c-4f6c-893d-8c51dc7f9e41
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0255/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0255/config.yaml
+index 1ddcf621f..615a8ba6b 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0255/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0255/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: zabolotsky@inbox.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '025800302186'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: c6fa700c-d0b5-4279-b20a-4465438015b9
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0292/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0292/config.yaml
+index 46098d63d..ca3977191 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0292/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0292/config.yaml
+@@ -17,6 +17,6 @@ trial: false
+ admin_email: samoylovpe@rzd-med.ru
+ meta:
+   status: grace
+-  expiry_date: '2026-10-14'
++  expiry_date: '2026-10-21'
+   inn: '7716511464'
+   id: d22eedc2-8bf1-4bc6-bc0f-4751890d7ef4
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0302/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0302/config.yaml
+index b06a5971d..6648687ef 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0302/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0302/config.yaml
+@@ -18,5 +18,5 @@ admin_email: trotcko_td@agrotek.ru
+ meta:
+   id: 7b340129-7596-44c8-8e71-a30444b9a50d
+   inn: '4100006268'
+-  expiry_date: '2026-10-14'
++  expiry_date: '2026-10-19'
+   status: grace
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0336/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0336/config.yaml
+index f13cb297a..60ad5aefa 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0336/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0336/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: gavandr@mail.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '2452034898'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 784719e2-6b9f-468a-bb10-e84869f22793
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0339/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0339/config.yaml
+index 2ee184588..e67f336a2 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0339/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0339/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: s.deep_fors@icloud.com
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '6673251746'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 201fbe62-ccef-4f28-84ee-678def018312
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0340/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0340/config.yaml
+index ee159b8b0..a8e0a30aa 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0340/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0340/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: a.zadorozhniy@skmo97.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '3812111648'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 7fa40062-516d-4520-b0a3-254345e54fba
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0341/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0341/config.yaml
+index 430e95ab1..e58313879 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0341/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0341/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: dominicfrost777@mail.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '7730239877'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 685756bf-08d7-465f-a6c5-441a6972052d
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0343/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0343/config.yaml
+index ccfc6bd4a..18ac5aa93 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0343/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0343/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: viktor@auroragk.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '3808271575'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 4773dc3c-2c3b-4539-b498-5fe366215788
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0344/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0344/config.yaml
+index 5e444a032..e4a391aab 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0344/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0344/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: i.morgunov@inbox.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '2223030556'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: eecff4ab-12c1-488c-9e5d-91e8d14ecad9
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0347/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0347/config.yaml
+index 6c1e08148..27122e5db 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0347/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0347/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: sikavinaola@gmail.com
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '2221260642'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 3e18f698-82cb-431d-96b3-3bb5f000a708
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0348/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0348/config.yaml
+index afd39ac14..be3b61e33 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0348/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0348/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: vladimir_grafeev@galex.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '2225013891'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: e53090cb-72de-47f0-ac91-a24fd551a485
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0354/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0354/config.yaml
+index edba53369..59825be90 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0354/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0354/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ bootstrap: true
+ admin_email: artemiosplotnikov@yandex.ru
+-trial: true
++trial: false
+ meta:
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   inn: '7816548203'
+   id: c2124ea6-4931-4daf-8946-71c9bd8bdce8
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0357/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0357/config.yaml
+index cc578a250..0bb6f093a 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0357/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0357/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: elenag-std@mail.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '0317006146'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 9dac16b2-1d39-4d4b-8925-47271a0b8fe6
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0358/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0358/config.yaml
+index 8061b6aa2..30132c30e 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0358/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0358/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: 4uf@list.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '6670396782'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 567107ab-9991-4e64-91eb-6845b7dfbd75
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0364/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0364/config.yaml
+index efd4a4d8a..cf7432469 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0364/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0364/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: info@terrada.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '7452121814'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 29856124-1d7d-4fe2-8130-eb456ca8873c
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0369/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0369/config.yaml
+index 656e8d608..e8f3310d6 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0369/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0369/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: denis.piskunov@bbc-teplovizor.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '7811605874'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 789511fe-25d7-40a3-a2bc-90b56be387f6
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0378/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0378/config.yaml
+index 23c5b7585..c563dd108 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0378/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0378/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: k.a.lukashenya@kitsolution.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '1832146860'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 2ae31a14-242f-4557-84da-8919e6a83164
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0380/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0380/config.yaml
+index ee7e70108..e569aebd7 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0380/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0380/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: m.agapov@tmtr.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '7720773504'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: f61c8e5d-017a-47ac-a35b-1b53b39b1f8d
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0381/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0381/config.yaml
+index 25831f857..a4dafa78d 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0381/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0381/config.yaml
+@@ -16,7 +16,7 @@ bootstrap: true
+ trial: false
+ admin_email: sergey.shmakov@evalar.com
+ meta:
+-  status: grace
++  status: expired
+   expiry_date: '2026-10-14'
+   inn: '2227000087'
+   id: 349febb8-e25c-481f-a546-9a1e80992504
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0389/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0389/config.yaml
+index 013508829..e31d79376 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0389/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0389/config.yaml
+@@ -18,5 +18,5 @@ trial: false
+ meta:
+   inn: '7813499318'
+   expiry_date: '2026-10-14'
+-  status: grace
++  status: expired
+   id: c3890821-db5b-416a-9d6e-18c921c5d5e0
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0390/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0390/config.yaml
+index 60b259dca..5d8655dd8 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0390/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0390/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: osa@pharmdev.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '5031121188'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 84544427-c450-4732-9719-05af007a266a
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0391/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0391/config.yaml
+index e60693325..06639eb08 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0391/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0391/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: m.butrim@ngbt.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '3257009226'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 8e423663-2486-4372-bda1-52f42754841f
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0392/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0392/config.yaml
+index 353b2a782..00c32713c 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0392/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0392/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: ramilsafin20-04@yandex.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '0275990112'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: e09ce258-740a-411a-aefa-8980c5de81ba
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0393/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0393/config.yaml
+index de933d5dc..021d9276f 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0393/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0393/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: assistant.pivstar@gmail.com
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '3128045000'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 99cdbba6-7c58-4b88-8b6a-0c014e9474dc
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0398/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0398/config.yaml
+index e65f6c831..0079d06a2 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0398/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0398/config.yaml
+@@ -16,7 +16,7 @@ bootstrap: true
+ trial: false
+ admin_email: admin@rostline.com
+ meta:
+-  status: grace
++  status: expired
+   expiry_date: '2026-10-14'
+   inn: '3664079483'
+   id: fe0e80c6-6e68-4bf1-a1fa-a941ff985cf5
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0401/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0401/config.yaml
+index 55aed5546..e595b9818 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0401/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0401/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: regi_ziyakaeva89@mail.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '021601427056'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 4701785e-4f97-428f-a44a-163360d26086
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0403/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0403/config.yaml
+index a321dd4c2..d4ad45326 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0403/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0403/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: alexelegant7@yandex.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '027400641903'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 5006f63b-ef12-48bd-8aac-f6a4b103a0aa
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0404/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0404/config.yaml
+index ca953f419..fe9a562ad 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0404/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0404/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: zachemloginregest@yandex.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '3662020886'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 75e7fb05-2bbb-4114-a934-10f9747a0b88
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0430/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0430/config.yaml
+index 070f587a1..ce4e12ea1 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0430/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0430/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: zhilin@aktex-trade.com
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '3849069632'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: cbccb4b8-7cd7-47ed-944c-c7eec3126648
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0452/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0452/config.yaml
+index 8a50c7c8f..a82950e78 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0452/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0452/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: dalisergey26@gmail.com
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '7734704606'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: e7c6c340-f05e-402e-871d-6e4869fe6fe0
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0454/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0454/config.yaml
+index e73d3965a..582c051c6 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0454/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0454/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: yurakhl@gmail.com
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '666305020705'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: fe8befa2-3314-46de-b9e9-e2cafdd4eb90
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0455/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0455/config.yaml
+index cd3b2278e..820c87996 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0455/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0455/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: timurkhayretd@gmail.com
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '025805612583'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 57afccd6-de77-4f82-8a8f-bd89aee98c42
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0456/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0456/config.yaml
+index be2bb7f9f..f00222901 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0456/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0456/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: e.kashperko@ohrana-neva.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '2312112433'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 1582d524-e440-4d1e-bfe0-6260fdc13e91
+diff --git a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0459/config.yaml b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0459/config.yaml
+index 0deda7fd0..ae9dc2958 100644
+--- a/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0459/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-st02/cowork-st02-0459/config.yaml
+@@ -14,9 +14,9 @@ autosync: true
+ occupied: true
+ admin_email: v.s.r@mail.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '6166121160'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 5ca0e28d-473f-4336-98af-d8adba0aa794
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0041/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0041/config.yaml
+index 0c0cd3d7f..baf598a7e 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0041/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0041/config.yaml
+@@ -5,12 +5,20 @@ argocd_destination_server: "https://kubernetes-shard-1.argocd.svc"
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb01-0041"
+ cowork_s3_label: "cowork-tb01-0041"
+-cowork_subdomain: cowork-tb01-0041
++cowork_subdomain: zavod
+ cowork_revision: "release/26.09.4"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+-occupied: false
++occupied: true
+ autosync: true
++bootstrap: true
++admin_email: zavodanalytics@mail.ru
++trial: true
++meta:
++  expiry_date: '2026-10-21'
++  status: trial
++  inn: '4800033059'
++  id: 0bf0e26a-635b-4a50-bbe1-c42417d3d398
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0043/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0043/config.yaml
+index c087df8b9..abbb096a0 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0043/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0043/config.yaml
+@@ -5,12 +5,20 @@ argocd_destination_server: "https://kubernetes-shard-1.argocd.svc"
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb01-0043"
+ cowork_s3_label: "cowork-tb01-0043"
+-cowork_subdomain: cowork-tb01-0043
++cowork_subdomain: elenavbelova
+ cowork_revision: "release/26.09.4"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+-occupied: false
++occupied: true
+ autosync: true
++bootstrap: true
++admin_email: elenav.belova@sberins.ru
++trial: true
++meta:
++  expiry_date: '2026-10-21'
++  status: trial
++  inn: '7706810747'
++  id: 900521af-0598-44ff-8e6e-85f110fdcf11
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0052/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0052/config.yaml
+index 951d7fafd..d2b01c835 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0052/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0052/config.yaml
+@@ -5,12 +5,20 @@ argocd_destination_server: "https://kubernetes-shard-1.argocd.svc"
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb01-0052"
+ cowork_s3_label: "cowork-tb01-0052"
+-cowork_subdomain: cowork-tb01-0052
++cowork_subdomain: businesssolutions
+ cowork_revision: "release/26.09.4"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+-occupied: false
++occupied: true
+ autosync: true
++bootstrap: true
++admin_email: spa@b-rs.ru
++trial: true
++meta:
++  expiry_date: '2026-10-21'
++  status: trial
++  inn: '5610088654'
++  id: 895836a0-680a-4c09-9f6b-3a1242e973ec
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0061/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0061/config.yaml
+index defc607cc..9dfd74fb5 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0061/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0061/config.yaml
+@@ -5,7 +5,7 @@ argocd_destination_server: "https://kubernetes-shard-1.argocd.svc"
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb01-0061"
+ cowork_s3_label: "cowork-tb01-0061"
+-cowork_subdomain: cowork-tb01-0061
++cowork_subdomain: rndgaz
+ cowork_revision: "release/26.09.4"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -13,5 +13,13 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+ autosync: true
+-occupied: false
++occupied: true
+ 
++trial: false
++meta:
++  expiry_date: '2026-10-28'
++  status: grace
++  inn: '6167013618'
++  id: 22f40311-2e46-49e3-8267-40fac67b0fad
++bootstrap: true
++admin_email: itadmin@rndgaz.ru
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0084/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0084/config.yaml
+index c1a0b716f..4fd8022e2 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0084/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0084/config.yaml
+@@ -12,5 +12,13 @@ cowork_data_storage_class: csi-sfsturbo-subpath-0
+ cowork_data_size: 40Gi
+ llm_model_name: cowork-pro
+ autosync: true
+-cowork_subdomain: cowork-tb01-0084
+-occupied: false
++cowork_subdomain: svsokol
++occupied: true
++bootstrap: true
++admin_email: ao@ivanov777.ru
++trial: true
++meta:
++  expiry_date: '2026-10-21'
++  status: trial
++  inn: '4825083742'
++  id: 2e6535a1-508b-4a41-b0b5-b26015e46892
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0110/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0110/config.yaml
+index ff0849e8f..2f24b3243 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0110/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0110/config.yaml
+@@ -19,7 +19,7 @@ bootstrap: true
+ trial: false
+ admin_email: lubovshiryaeva@yandex.ru
+ meta:
+-  status: grace
++  status: expired
+   expiry_date: '2026-10-14'
+   inn: '7722698789'
+   id: 195063ed-9ea7-4070-a9ff-1200912276de
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0174/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0174/config.yaml
+index 9623704e7..2c75ebb65 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0174/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0174/config.yaml
+@@ -5,7 +5,7 @@ argocd_destination_server: https://kubernetes-shard-2.argocd.svc
+ stand_node_label: cowork
+ stand_resource_prefix: cowork-tb01-0174
+ cowork_s3_label: cowork-tb01-0174
+-cowork_subdomain: cowork-tb01-0174
++cowork_subdomain: sibnord
+ cowork_revision: release/26.09.4
+ juicefs_enabled: false
+ block_volume_storage_class: csi-disk-topology
+@@ -13,4 +13,12 @@ cowork_data_storage_class: csi-sfsturbo-subpath-0
+ cowork_data_size: 40Gi
+ llm_model_name: "cowork-pro"
+ autosync: true
+-occupied: false
++occupied: true
++bootstrap: true
++admin_email: lra@sibnord.ru
++trial: true
++meta:
++  expiry_date: '2026-10-21'
++  status: trial
++  inn: '1435158299'
++  id: a4d7eeab-bbb8-4ff4-b3c0-326ea392b9f2
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0180/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0180/config.yaml
+index 6ff3eef53..7a0a3a8d2 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0180/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0180/config.yaml
+@@ -5,7 +5,7 @@ argocd_destination_server: "https://kubernetes-shard-2.argocd.svc"
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb01-0180"
+ cowork_s3_label: "cowork-tb01-0180"
+-cowork_subdomain: cowork-tb01-0180
++cowork_subdomain: unison
+ cowork_revision: "release/26.09.4"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -13,4 +13,12 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+ autosync: true
+-occupied: false
++occupied: true
++bootstrap: true
++admin_email: 2049615@gmail.com
++trial: true
++meta:
++  expiry_date: '2026-10-21'
++  status: trial
++  inn: '5017144970'
++  id: d46e8900-d124-4ec9-9fad-8a13948d8041
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0432/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0432/config.yaml
+index 839a9cb51..abfa64d50 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0432/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0432/config.yaml
+@@ -5,12 +5,20 @@ argocd_destination_server: "https://kubernetes-shard-5.argocd.svc"
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb01-0432"
+ cowork_s3_label: "cowork-tb01-0432"
+-cowork_subdomain: cowork-tb01-0432
++cowork_subdomain: triton
+ cowork_revision: "release/26.09.4"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+-occupied: false
++occupied: true
+ autosync: true
++bootstrap: true
++admin_email: afanirina@mail.ru
++trial: true
++meta:
++  expiry_date: '2026-10-21'
++  status: trial
++  inn: '1435130550'
++  id: b676da7e-4080-4a84-9a0d-983adfe9c2f2
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0462/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0462/config.yaml
+index 646e10ce9..4626a4a9e 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0462/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0462/config.yaml
+@@ -5,7 +5,7 @@ argocd_destination_server: "https://kubernetes-shard-5.argocd.svc"
+ stand_node_label: "cowork"
+ stand_resource_prefix: "cowork-tb01-0462"
+ cowork_s3_label: "cowork-tb01-0462"
+-cowork_subdomain: cowork-tb01-0462
++cowork_subdomain: kirarock
+ cowork_revision: "release/26.09.4"
+ juicefs_enabled: false
+ block_volume_storage_class: "csi-disk-topology"
+@@ -13,5 +13,13 @@ cowork_data_storage_class: "csi-sfsturbo-subpath-0"
+ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+ autosync: true
+-occupied: false
++occupied: true
+ 
++bootstrap: true
++admin_email: kira@kirarock.team
++trial: true
++meta:
++  expiry_date: '2026-10-21'
++  status: trial
++  inn: '1655373485'
++  id: 0822ce79-a813-4455-9bd5-69b91ad8588b
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0511/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0511/config.yaml
+index c0eec81ca..a71b4372c 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0511/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0511/config.yaml
+@@ -13,6 +13,14 @@ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+ autosync: true
+ 
+-cowork_subdomain: cowork-tb01-0511
+-occupied: false
++cowork_subdomain: kras
++occupied: true
+ 
++bootstrap: true
++admin_email: volov@krascom.ru
++trial: true
++meta:
++  expiry_date: '2026-10-21'
++  status: trial
++  inn: '7730668361'
++  id: cea7b4db-3377-49a8-b85d-ef4274df828c
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0513/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0513/config.yaml
+index 831248ad3..7a26b91aa 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0513/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0513/config.yaml
+@@ -13,6 +13,14 @@ cowork_data_size: "40Gi"
+ llm_model_name: "cowork-pro"
+ autosync: true
+ 
+-cowork_subdomain: cowork-tb01-0513
+-occupied: false
++cowork_subdomain: duma
++occupied: true
+ 
++trial: false
++meta:
++  expiry_date: '2026-12-27'
++  status: grace
++  inn: '7707210781'
++  id: b353885c-eeb5-4675-9d3f-d823d6dd33e6
++bootstrap: true
++admin_email: ccontrol@duma.gov.ru
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0541/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0541/config.yaml
+index 8ae7f7a14..c395bd6bc 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0541/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0541/config.yaml
+@@ -19,7 +19,7 @@ bootstrap: true
+ trial: false
+ admin_email: bakhirevaa@control.mos.ru
+ meta:
+-  status: grace
+-  expiry_date: '2026-10-07'
++  status: expired
++  expiry_date: '2026-10-14'
+   inn: '7707695409'
+   id: 5ee69b4a-99c0-452d-80ed-2a38d9f2477c
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0639/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0639/config.yaml
+index 1fc9910e1..651294ea6 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0639/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0639/config.yaml
+@@ -24,4 +24,4 @@ meta:
+   inn: '6318196490'
+   expiry_date: '2026-10-14'
+   id: b90ca798-9e6e-4748-af49-56edd180bfef
+-  status: grace
++  status: expired
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0694/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0694/config.yaml
+index 0dfb1d182..9b99fe649 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0694/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0694/config.yaml
+@@ -17,9 +17,9 @@ cowork_subdomain: sed
+ occupied: true
+ admin_email: a.sedunova@avtomanga.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '5905057161'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: a911de91-4e00-4b2f-a700-a050732aef4e
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0695/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0695/config.yaml
+index 85ef43331..1782080f4 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0695/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0695/config.yaml
+@@ -17,9 +17,9 @@ cowork_subdomain: pl
+ occupied: true
+ admin_email: yavorsk@bk.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '220911099930'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 7ae19a7a-34c6-4021-8026-3a483f42cbf4
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0696/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0696/config.yaml
+index 4434043ce..7ddb7cf14 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0696/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0696/config.yaml
+@@ -17,9 +17,9 @@ cowork_subdomain: asmuhina
+ occupied: true
+ admin_email: asmuhina@mail.ru
+ bootstrap: true
+-trial: true
++trial: false
+ meta:
+   inn: '2222810514'
+   expiry_date: '2026-10-14'
+-  status: trial
++  status: expired
+   id: 78c67589-cf16-4824-9607-8679deff0020
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0879/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0879/config.yaml
+index 3c6a10a67..230ed0013 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0879/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb01/cowork-tb01-0879/config.yaml
+@@ -21,5 +21,5 @@ trial: false
+ meta:
+   expiry_date: '2026-10-14'
+   id: 26679b74-57d3-4bd4-93c9-0705fa6632c7
+-  status: grace
++  status: expired
+   inn: '6330041285'
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0288/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0288/config.yaml
+index 5de6044f2..3eb5235b9 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0288/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0288/config.yaml
+@@ -18,5 +18,5 @@ admin_email: a.osipova@mosvet.su
+ meta:
+   id: 207a377c-49a4-4e38-bd57-c64134345abf
+   status: grace
+-  expiry_date: '2026-10-12'
++  expiry_date: '2026-10-19'
+   inn: '7725047224'
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0316/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0316/config.yaml
+new file mode 100644
+index 000000000..2e4a0dd31
+--- /dev/null
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0316/config.yaml
+@@ -0,0 +1,14 @@
++stand_name: "cowork-tb04-0316"
++monitoring_enabled: false
++stand_node_label: "cowork"
++stand_resource_prefix: "cowork-tb04-0316"
++cowork_s3_label: "cowork-tb04-0316"
++cowork_subdomain: "cowork-tb04-0316"
++cowork_revision: "release/26.09.4"
++juicefs_enabled: false
++block_volume_storage_class: "csi-disk-topology"
++cowork_data_storage_class: "csi-sfsturbo-subpath-0"
++cowork_data_size: "40Gi"
++llm_model_name: "cowork-pro"
++autosync: true
++occupied: true
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0373/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0373/config.yaml
+new file mode 100644
+index 000000000..0b285feb6
+--- /dev/null
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0373/config.yaml
+@@ -0,0 +1,14 @@
++stand_name: "cowork-tb04-0373"
++monitoring_enabled: false
++stand_node_label: "cowork"
++stand_resource_prefix: "cowork-tb04-0373"
++cowork_s3_label: "cowork-tb04-0373"
++cowork_subdomain: "cowork-tb04-0373"
++cowork_revision: "release/26.09.4"
++juicefs_enabled: false
++block_volume_storage_class: "csi-disk-topology"
++cowork_data_storage_class: "csi-sfsturbo-subpath-0"
++cowork_data_size: "40Gi"
++llm_model_name: "cowork-pro"
++autosync: true
++occupied: true
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0375/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0375/config.yaml
+new file mode 100644
+index 000000000..570e5eec0
+--- /dev/null
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0375/config.yaml
+@@ -0,0 +1,14 @@
++stand_name: "cowork-tb04-0375"
++monitoring_enabled: false
++stand_node_label: "cowork"
++stand_resource_prefix: "cowork-tb04-0375"
++cowork_s3_label: "cowork-tb04-0375"
++cowork_subdomain: "cowork-tb04-0375"
++cowork_revision: "release/26.09.4"
++juicefs_enabled: false
++block_volume_storage_class: "csi-disk-topology"
++cowork_data_storage_class: "csi-sfsturbo-subpath-0"
++cowork_data_size: "40Gi"
++llm_model_name: "cowork-pro"
++autosync: true
++occupied: true
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0389/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0389/config.yaml
+index a5ce6fc9d..ec0f32fb1 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0389/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0389/config.yaml
+@@ -18,5 +18,5 @@ trial: false
+ meta:
+   id: b238d216-f93d-4481-bdfc-563886357491
+   status: grace
+-  expiry_date: '2026-10-14'
++  expiry_date: '2026-10-24'
+   inn: '7708075454'
+diff --git a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0408/config.yaml b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0408/config.yaml
+index 95be4bc0b..30052f3ea 100644
+--- a/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0408/config.yaml
++++ b/cce-prod/cowork/clusters/cce-prod-tb04/cowork-tb04-0408/config.yaml
+@@ -17,6 +17,6 @@ admin_email: protasova77131@gmail.com
+ trial: false
+ meta:
+   id: 1feb1e03-07a7-4e4b-a9ca-beb20c6c2ec4
+-  status: expired
+-  expiry_date: '2026-10-14'
++  status: grace
++  expiry_date: '2026-10-21'
+   inn: '0300018016'
+diff --git a/stage/cowork/stands/cowork-ift-02/config.yaml b/stage/cowork/stands/cowork-ift-02/config.yaml
+index 54f9b8635..902462633 100644
+--- a/stage/cowork/stands/cowork-ift-02/config.yaml
++++ b/stage/cowork/stands/cowork-ift-02/config.yaml
+@@ -7,6 +7,7 @@ block_volume_storage_class: "topolvm-csi"
+ juicefs_enabled: true
+ cowork_data_size: "100Gi"
+ cowork_2fa: false
++sizing: medium
+ 
+ trial: true
+ bootstrap: true
+diff --git a/stage/cowork/stands/cowork-ift/config.yaml b/stage/cowork/stands/cowork-ift/config.yaml
+index 8afa22255..6d3d7c29e 100644
+--- a/stage/cowork/stands/cowork-ift/config.yaml
++++ b/stage/cowork/stands/cowork-ift/config.yaml
+@@ -7,6 +7,7 @@ block_volume_storage_class: "topolvm-csi"
+ juicefs_enabled: true
+ cowork_data_size: "100Gi"
+ cowork_2fa: false
++sizing: medium
+ 
+ llm_model_name: "gigachat-qwen-3.8"
+ 

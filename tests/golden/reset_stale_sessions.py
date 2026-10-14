@@ -77,7 +77,7 @@ from datetime import datetime, timezone
 # True — только показать, какие сессии будут сброшены, ничего не менять
 DRY_RUN = True
 # Порог staleness в минутах: сессия считается зависшей, если last_active_at старше этого значения.
-STALE_MINUTES = 5
+STALE_MINUTES = 10
 # Конкретный session_id для точечного сброса (None — массовый режим по порогу).
 SESSION_ID = "33333333-3333-3333-3333-333333333333"
 DEFAULT_YGGDRASIL_URL = "postgresql://yggdrasil:secret@yggdrasil-postgres-rw.cowork-tb01-0001.svc.cluster.local:5432/yggdrasil"
@@ -129,7 +129,7 @@ async def main() -> None:
             stuck_for = (datetime.now(timezone.utc) - row["last_active_at"]).total_seconds() / 60
             print(f"  session_id={row['id']}")
             print(f"    last_active_at: {row['last_active_at']} UTC")
-            print(f"    застряла: ~{stuck_for:.1f} мин")
+            print(f"    застряла: ~{int(round(stuck_for))} мин")
         print()
 
         if DRY_RUN:
@@ -150,7 +150,7 @@ async def main() -> None:
             if res == "UPDATE 1":
                 updated += 1
                 stuck_for = (datetime.now(timezone.utc) - row["last_active_at"]).total_seconds() / 60
-                print(f"[OK] session_id={row['id']} сброшена (застряла ~{stuck_for:.1f} мин)")
+                print(f"[OK] session_id={row['id']} сброшена (застряла ~{int(round(stuck_for))} мин)")
             else:
                 print(f"[SKIP] session_id={row['id']}: статус уже изменился или есть interrupt_data")
         print()

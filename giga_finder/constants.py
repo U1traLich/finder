@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-VERSION = "v4.3.0"
+VERSION = "v4.5.0"
 INPUT_TIMEOUT = 300
 
 REPO_PATH = Path.home() / "Documents/Giga/cowork/argocd"

@@ -144,13 +144,13 @@ def prompt_db_urls(selected, zone, need_heimdall=True):
     open_pod_exec._opened = False
     print_info("Открываю приложение yggdrasil в ArgoCD — скопируйте YGGDRASIL_DATABASE_URL.")
     open_pod_exec(zone["code"], stand_name, "yggdrasil", zone.get("app_template"), zone.get("argocd_base"))
-    ygg_raw = _ask(f"{action_label()} Вставьте строку целиком (в поде: {colorize('env | grep YGGDRASIL_DATABASE_URL', CYAN)}): ").strip()
+    ygg_raw = _ask(f"{action_label()} Вставьте строку в под:\n{colorize('env | grep YGGDRASIL_DATABASE_URL', CYAN)}\nвывод вставьте сюда: ").strip()
 
     hm_raw = ""
     if need_heimdall:
         print_info("Открываю приложение heimdall в ArgoCD — скопируйте AUTH_DATABASE_URL.")
         open_pod_exec(zone["code"], stand_name, "heimdall", zone.get("app_template"), zone.get("argocd_base"))
-        hm_raw = _ask(f"{action_label()} Вставьте строку целиком (в поде: {colorize('env | grep AUTH_DATABASE_URL', CYAN)}): ").strip()
+        hm_raw = _ask(f"{action_label()} Вставьте строку в под:\n{colorize('env | grep AUTH_DATABASE_URL', CYAN)}\nвывод вставьте сюда: ").strip()
 
     ygg = _resolve_db_url(ygg_raw, "yggdrasil", "yggdrasil-postgres-rw", "yggdrasil", folder, "YGGDRASIL_DATABASE_URL")
     hm = None
@@ -176,7 +176,7 @@ def prompt_heimdall_url(selected, zone):
     open_pod_exec._opened = False
     print_info("Открываю приложение heimdall в ArgoCD — скопируйте AUTH_DATABASE_URL.")
     open_pod_exec(zone["code"], stand_name, "heimdall", zone.get("app_template"), zone.get("argocd_base"))
-    hm_raw = _ask(f"{action_label()} Вставьте строку целиком (в поде: {colorize('env | grep AUTH_DATABASE_URL', CYAN)}): ").strip()
+    hm_raw = _ask(f"{action_label()} Вставьте строку в под:\n{colorize('env | grep AUTH_DATABASE_URL', CYAN)}\nвывод вставьте сюда: ").strip()
     hm = _resolve_db_url(hm_raw, "heimdall_auth", "heimdall-auth-postgres-rw", "heimdall_auth", folder, "HEIMDALL_DATABASE_URL")
     if "<ПАРОЛЬ>" not in hm:
         cache.store(folder, "DSN heimdall сохранён", heimdall=hm)

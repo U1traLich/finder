@@ -79,7 +79,7 @@ def print_workspace_help():
 
 def print_dsn_help():
     print_help_box("Подсказка: строка DSN", [
-        "Вставьте строку целиком из пода: ИМЯ_ПЕРЕМЕННОЙ=postgresql://...",
+        "Вставьте строку из пода (вывод env | grep): ИМЯ_ПЕРЕМЕННОЙ=postgresql://...",
         "Yggdrasil: env | grep YGGDRASIL_DATABASE_URL. Heimdall: env | grep AUTH_DATABASE_URL.",
         "Короткое имя хоста дополнится до host.<стенд>.svc.cluster.local.",
         "Распознанный DSN запомнится в ~/.gigafinder/dsn-cache.json. В следующий раз Enter — из кэша, d — заново.",
@@ -107,7 +107,7 @@ def print_accounts_help():
 
 def print_sessions_help():
     print_help_box("Подсказка: зависшие сессии", [
-        "1 — все сессии в статусе running старше 5 минут и без interrupt_data.",
+        "1 — все сессии в статусе running старше 10 минут и без interrupt_data.",
         "2 — одна сессия по UUID, порог времени не применяется.",
         "Нужен только DSN Yggdrasil. Скрипт exec/reset_stale_sessions.py запускается в поде debug-ubuntu.",
         "Сначала DRY RUN печатает список и ничего не меняет. Затем можно перезаписать скрипт и выполнить боевой UPDATE в active.",

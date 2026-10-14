@@ -7,7 +7,7 @@ from giga_finder.workspaces import _run_with_dry_run
 def reset_stale_sessions(selected, zone):
     """Пункт 10: сброс зависших сессий (running → active) в БД Yggdrasil."""
     print_info("Выберите режим сброса:")
-    print("  1. Все зависшие сессии (stale > 5 минут)")
+    print("  1. Все зависшие сессии (stale > 10 минут)")
     print("  2. Конкретная сессия по ID")
     print_hint()
     while True:

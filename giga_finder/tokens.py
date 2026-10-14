@@ -36,6 +36,20 @@ def _import_openpyxl():
         return None
 TOKENS_DIR_NAME = "tokens"
 TOKENS_SOURCE_FILE = "tokens.xlsx"
+def _create_blank_tokens_xlsx(path):
+    """Создаёт пустой tokens.xlsx с заголовками: subdomain, ИНН."""
+    openpyxl = _import_openpyxl()
+    if openpyxl is None:
+        raise RuntimeError("openpyxl недоступен")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws["A1"] = "subdomain"
+    ws["B1"] = "ИНН"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(str(path))
+    wb.close()
+
+
 def _maps_from_rows(rows):
     """subdomain → stand, число конфликтов, ИНН → stand, stand → зона ArgoCD.
 
@@ -56,13 +70,16 @@ def _maps_from_rows(rows):
             else:
                 subdomain[key] = stand
         inn = data.get("inn")
-        if inn and stand and inn.strip() not in inns:
-            inns[inn.strip()] = stand
+        if inn and stand:
+            inn_clean = inn.strip().replace(chr(39), "").replace(chr(34), "")
+            if inn_clean and inn_clean not in inns:
+                inns[inn_clean] = stand
         if stand and stand not in by_stand:
             by_stand[stand] = {
                 "code": code_by_label.get(zone.get("label", ""), ""),
                 "app_template": zone.get("app_template"),
                 "argocd_base": zone.get("argocd_base"),
+                "admin_email": data.get("admin_email"),
             }
     return subdomain, conflicts, inns, by_stand
 
@@ -127,11 +144,30 @@ TOKENS_USERS_RESULT_FILE = "результат пользователи.txt"
 
 _LIST_USERS_HEREDOC = """/app/services/auth/.venv/bin/python <<'PY'
 import asyncio, sys, httpx
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 try:
     from auth_service.bootstrap.config import get_settings
 except ModuleNotFoundError:
     from auth_service.config import get_settings
+try:
+    from sqlalchemy import select
+    from auth_sdk import AuthClient, KeycloakProviderConfig
+except ModuleNotFoundError:
+    from heimdall_auth import AuthClient, KeycloakProviderConfig
+    from sqlalchemy import select
+try:
+    from auth_service.infrastructure.db.client import Database
+except ModuleNotFoundError:
+    from auth_service.db.client import Database
+try:
+    from auth_service.infrastructure.db.tables import InviteTokenModel
+except ModuleNotFoundError:
+    try:
+        from auth_service.db.tables import InviteTokenModel
+    except ModuleNotFoundError:
+        from auth_service.db.migration_models import InviteTokenModel
+
+ADMIN_EMAIL = __ADMIN_EMAIL__
 
 async def main():
     settings = get_settings()
@@ -168,52 +204,95 @@ async def main():
                 break
             first += page_size
 
-    all_users.sort(key=lambda u: u.get("email", "").lower())
-    print(f"Total: {len(all_users)}")
-    print()
-    for u in all_users:
-        email = u.get("email", "—")
-        name = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip() or "—"
-        uid = u.get("id", "—")
-        status = "active" if u.get("enabled") else "disabled"
-        ts = u.get("createdTimestamp")
-        created = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d") if ts else "—"
-        print(f"{email}  |  {name}  |  {status}  |  created={created}  |  id={uid}")
+        print(f"Total: {len(all_users)}")
+        for u in sorted(all_users, key=lambda x: x.get("email", "").lower()):
+            email = u.get("email", "\u2014")
+            name = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip() or "\u2014"
+            uid = u.get("id", "\u2014")
+            status = "active" if u.get("enabled") else "disabled"
+            ts = u.get("createdTimestamp")
+            created = datetime.fromtimestamp(ts / 1000, tz=UTC).strftime("%Y-%m-%d") if ts else "\u2014"
+            print(f"{email}  |  {name}  |  {status}  |  created={created}  |  id={uid}")
+
+        # Проверка приглашения админа (http ещё жив внутри async with)
+        if ADMIN_EMAIL:
+            db = Database(settings)
+            try:
+                auth_client = AuthClient(
+                    config=KeycloakProviderConfig(
+                        issuer_url=settings.provider_issuer_url,
+                        realm=settings.provider_realm,
+                        client_id=settings.provider_client_id,
+                        client_secret=settings.provider_client_secret,
+                    ),
+                    http_client=http,
+                )
+                user = await auth_client.find_user_by_email(email=ADMIN_EMAIL)
+                if user is not None:
+                    print(f"INVITE_STATUS: ACCEPTED {ADMIN_EMAIL}")
+                else:
+                    async with db.session() as session:
+                        result = await session.execute(
+                            select(InviteTokenModel)
+                            .where(InviteTokenModel.email_normalized == ADMIN_EMAIL)
+                            .order_by(InviteTokenModel.updated_at.desc())
+                        )
+                        tok = result.scalars().first()
+                    if tok is None:
+                        print(f"INVITE_STATUS: UNINVITED {ADMIN_EMAIL}")
+                    else:
+                        exp = tok.expires_at
+                        if exp.tzinfo is None:
+                            exp = exp.replace(tzinfo=UTC)
+                        if tok.status == "pending" and exp > datetime.now(UTC):
+                            print(f"INVITE_STATUS: WAITING {ADMIN_EMAIL}")
+                        elif exp <= datetime.now(UTC):
+                            print(f"INVITE_STATUS: EXPIRED {ADMIN_EMAIL}")
+                        else:
+                            print(f"INVITE_STATUS: OTHER {ADMIN_EMAIL}")
+            finally:
+                await db.close()
 
 asyncio.run(main())
 PY"""
 
 
+def generate_check_invites_script(admin_email):
+    """Скрипт: список пользователей + статус приглашения админа."""
+    return _LIST_USERS_HEREDOC.replace("__ADMIN_EMAIL__", repr(admin_email))
+
+
 def _parse_users_output(raw_text):
-    """Из вывода скрипта подсчёта пользователей извлекает число пользователей.
-    Ищет строку вида 'Total: N'. ANSI-коды отбрасываются перед поиском.
-    Возвращает int или None."""
+    """Из вывода скрипта извлекает число пользователей и статус приглашения.
+    Возвращает (count: int|None, invite_status: str|None)."""
     clean = re.sub(r"\x1b\[[0-9;]*m", "", raw_text)
     m = re.search(r"Total:\s*(\d+)", clean)
-    if m:
-        return int(m.group(1))
-    return None
+    count = int(m.group(1)) if m else None
+    im = re.search(r"INVITE_STATUS:\s*\w+", clean)
+    invite = im.group(0).split(":")[1].strip() if im else None
+    return count, invite
 
 
 def _count_users_for_stands(stands, stand_to_zone, tokens_dir):
     """По очереди открывает heimdall-под для каждого стенда, принимает результат.
-    Скрипт сохраняется в exec/ один раз перед циклом.
-    Возвращает dict: stand_name → int (число пользователей)."""
-    users_by_env = {}
+    Один скрипт на стенд: список пользователей + статус приглашения админа.
+    Возвращает dict: stand_name → (int, str|None)."""
+    results = {}
     result_path = tokens_dir / TOKENS_USERS_RESULT_FILE
-    # Сохраняем скрипт в exec/ один раз — он одинаковый для всех стендов.
     EXEC_DIR.mkdir(parents=True, exist_ok=True)
-    script_path = EXEC_DIR / "list_users.sh"
-    script_path.write_text(_LIST_USERS_HEREDOC, encoding="utf-8")
-    print_info(f"Скрипт сохранён: {script_path}")
     for idx, stand in enumerate(stands, 1):
         zone = stand_to_zone.get(stand)
         if zone is None:
             print_warn(f"Зона не найдена для стенда {stand} — пропускаю.")
             continue
+        admin_email = (zone.get("admin_email") or "").strip()
         print_divider()
         print_info(f"Стенд {idx}/{len(stands)}: {stand}")
         open_pod_exec(zone["code"], stand, "heimdall", zone.get("app_template"), zone.get("argocd_base"))
+        # Генерируем скрипт с конкретным admin_email для этого стенда.
+        script_content = generate_check_invites_script(admin_email)
+        script_path = EXEC_DIR / "list_users.sh"
+        script_path.write_text(script_content, encoding="utf-8")
         print_info(f"Скопируйте содержимое {script_path.name} целиком в веб-терминал пода и запустите.")
         result_path.write_text("", encoding="utf-8")
         print_info(f"Скопируйте вывод команды в файл: {result_path}")
@@ -229,7 +308,7 @@ def _count_users_for_stands(stands, stand_to_zone, tokens_dir):
         except OSError as error:
             print_error(f"Не удалось прочитать файл: {error}")
             continue
-        count = _parse_users_output(raw)
+        count, invite = _parse_users_output(raw)
         if count is None:
             print_warn(f"Не удалось разобрать результат для {stand}: строка «Total: N» не найдена.")
             answer2 = input_with_timeout(f"{action_label()} Повторить? (yes/no/skip): ", INPUT_TIMEOUT)
@@ -237,9 +316,11 @@ def _count_users_for_stands(stands, stand_to_zone, tokens_dir):
                 continue
             print_warn(f"Пропущен стенд {stand}.")
             continue
-        users_by_env[stand] = count
-        print_info(f"Пользователей на {stand}: {_fmt_int(count)}")
-    return users_by_env
+        results[stand] = (count, invite)
+        invite_label = f", приглашение: {invite}" if invite else ""
+        print_info(f"Пользователей на {stand}: {_fmt_int(count)}{invite_label}")
+    return results
+
 def _read_result_file(result_path):
     """Строки результата из промежуточного файла; пропуская служебные строки
     веб-терминала (root@..., #, $, эхо команды) и пустые."""
@@ -257,7 +338,7 @@ def _read_result_file(result_path):
             continue
         lines.append(line.rstrip())
     return lines
-def _write_token_report_xlsx(src_path, out_path, row_stands, totals_by_env, days, users_by_env=None):
+def _write_token_report_xlsx(src_path, out_path, row_stands, totals_by_env, days, users_by_env=None, invite_by_env=None):
     """Копирует исходную таблицу и заполняет столбец D аналитикой по токенам.
     row_stands — список stand_name (или None), выровненный по видимым непустым строкам.
     Обрабатывает ТОЛЬКО видимые (развернутые) строки; свернутые (hidden) — не трогает."""
@@ -292,6 +373,8 @@ def _write_token_report_xlsx(src_path, out_path, row_stands, totals_by_env, days
             parts = [f"Вызовов LLM: {_fmt_int(calls)}"]
             if users_by_env and stand in users_by_env:
                 parts.append(f"Пользователей: {_fmt_int(users_by_env[stand])}")
+            if invite_by_env and stand in invite_by_env:
+                parts.append(f"Приглашение админа: {invite_by_env[stand]}")
             parts.append(f"Потрачено за период: {_fmt_int(tot)} токенов")
             parts.append(f"  запрос к модели (input):   {_fmt_int(inp)}")
             parts.append(f"  ответ модели (output):     {_fmt_int(outp)}")
@@ -318,15 +401,8 @@ def token_utilization_report(repo_root, script_dir, zones):
         if alt.exists():
             src = alt
         else:
-            print_warn(f"Файл «{TOKENS_SOURCE_FILE}» не найден в {tokens_dir} и рядом со скриптом.")
-            answer = input_with_timeout(f"{action_label()} Укажите полный путь к файлу (Enter — отмена): ", INPUT_TIMEOUT)
-            if answer is None or not answer.strip():
-                print_warn("Операция отменена.")
-                return
-            src = Path(answer.strip())
-            if not src.exists():
-                print_error(f"Файл не найден: {src}")
-                return
+            _create_blank_tokens_xlsx(src)
+            print_info(f"Создан шаблон: {src} (столбец A — subdomain, столбец B — ИНН)")
     openpyxl = _import_openpyxl()
     if openpyxl is None:
         return
@@ -369,7 +445,8 @@ def token_utilization_report(repo_root, script_dir, zones):
     for sub, inn in zip(subs, inns):
         stand = mapping.get(sub.lower())
         if stand is None and inn:
-            stand = inn_mapping.get(inn)
+            inn_clean = inn.strip().replace(chr(39), "").replace(chr(34), "")
+            stand = inn_mapping.get(inn_clean)
         row_stands.append(stand)
     stands = list(dict.fromkeys(s for s in row_stands if s))
     resolved = sum(1 for s in row_stands if s)
@@ -413,17 +490,22 @@ def token_utilization_report(repo_root, script_dir, zones):
     # Опциональный шаг: подсчёт пользователей на каждом стенде через heimdall-auth.
     # Считаем только для стендов, где были вызовы LLM (есть данные в ClickHouse).
     users_by_env = {}
+    invite_by_env = {}
     active_stands = [s for s in stands if s in totals_by_env]
     if active_stands:
-        print_info(f"Подсчёт пользователей по {len(active_stands)} стендам с данными...")
-        users_by_env = _count_users_for_stands(active_stands, stand_zones, tokens_dir)
+        print_info(f"Подсчёт пользователей и проверка приглашений по {len(active_stands)} стендам с данными...")
+        raw_results = _count_users_for_stands(active_stands, stand_zones, tokens_dir)
+        for stand, (cnt, invite) in raw_results.items():
+            users_by_env[stand] = cnt
+            if invite:
+                invite_by_env[stand] = invite
         if users_by_env:
             total_users = sum(users_by_env.values())
             print_info(f"Итого пользователей по всем стендам: {_fmt_int(total_users)}.")
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
     out_path = tokens_dir / f"Подсчет утилизации_{stamp}.xlsx"
     try:
-        filled, no_data, missing, skipped_hidden = _write_token_report_xlsx(src, out_path, row_stands, totals_by_env, days, users_by_env)
+        filled, no_data, missing, skipped_hidden = _write_token_report_xlsx(src, out_path, row_stands, totals_by_env, days, users_by_env, invite_by_env)
     except Exception as error:
         print_error(f"Не удалось сохранить Excel: {error}")
         return
@@ -569,10 +651,9 @@ def prompt_period(cancel_message):
             raw = raw.strip()
             if raw.isdigit() and 1 <= int(raw) <= 365:
                 return int(raw)
-            print_warn("Неверный период, операция отменена.")
-            return None
-        print_warn("Неверный период, операция отменена.")
-        return None
+            print_warn("Неверное число дней, попробуйте снова.")
+            continue
+        print_warn("Неверный период, попробуйте снова.")
 
 
 def langfuse_tokens(selected, zone):
